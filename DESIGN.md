@@ -1,6 +1,6 @@
 # 育てるAI — 設計・使用書
 
-> AIに英文法を「教える」ことで、自分自身の理解と説明力を高める学習Webアプリ
+> AIに英文法を「教える」ことで、自分自身の理解と説明力を高める対話型学習Webアプリ
 
 ---
 
@@ -15,20 +15,10 @@
 7. [AIプロンプト設計（知識制御）](#7-aiプロンプト設計知識制御)
 8. [データ型定義](#8-データ型定義)
 9. [APIリファレンス](#9-apiリファレンス)
-10. [問題セット一覧](#10-問題セット一覧)
+10. [問題セット（差し替え方法）](#10-問題セット差し替え方法)
 11. [スコア評価の仕組み](#11-スコア評価の仕組み)
 12. [Supabaseセットアップ](#12-supabaseセットアップ)
-13. [今後の拡張予定（Phase 3）](#13-今後の拡張予定phase-3)
-3. [ディレクトリ構成](#3-ディレクトリ構成)
-4. [セットアップ手順](#4-セットアップ手順)
-5. [使い方（ユーザー向け）](#5-使い方ユーザー向け)
-6. [アーキテクチャ設計](#6-アーキテクチャ設計)
-7. [AIプロンプト設計（知識制御）](#7-aiプロンプト設計知識制御)
-8. [データ型定義](#8-データ型定義)
-9. [APIリファレンス](#9-apiリファレンス)
-10. [問題セット一覧](#10-問題セット一覧)
-11. [スコア評価の仕組み](#11-スコア評価の仕組み)
-12. [今後の拡張予定（Phase 2以降）](#12-今後の拡張予定phase-2以降)
+13. [今後の拡張予定](#13-今後の拡張予定)
 
 ---
 
@@ -36,28 +26,54 @@
 
 ### 学習の逆転：AIに「教える」
 
-一般的な生成AI活用では、生徒がAIから答えやヒントを「もらう」。  
+一般的な生成AI活用では、生徒がAIから答えやヒントを「もらう」。
 本アプリはその逆で、**生徒がAIに英文法を「教え」**、AIは教わった内容だけを使って問題を解く。
 
 ```
 通常:  生徒 ──質問→ AI ──答え→ 生徒
-育てるAI: 生徒 ──説明→ AI ──解答・思考過程→ 生徒（自分の説明の穴に気づく）
+育てるAI: 生徒 ──説明→ AI ──解答・思考過程・つまずき→ 生徒（自分の説明の穴に気づく）
 ```
+
+### 対話型フローへの刷新（Phase 3）
+
+初期版は「自由入力で一括説明 → AIが穴埋めを解く → スコア」という**単発型**だったが、
+以下の2つの課題があった：
+
+1. 教える側が「何をどう教えればよいか」が漠然としすぎていた
+2. オープンな入力窓に一括入力するだけで、心理的な取り組みやすさが低かった
+
+これを、**足場掛け（scaffolding）と段階化された対話型フロー**に作り替えた。
+
+```
+①基礎説明 → ②練習対話 → ③学習内容の把握 → ④テスト → スコア
+```
+
+| ステップ | 内容 |
+|---|---|
+| ①基礎説明 | 従来UI（教え方ガイド付き）でAIに基本ルールを教える |
+| ②練習対話 | AIが**4択の練習問題を1問ずつ**解き、正答でも「他の選択肢がなぜ違うか分からない」「この型は解けないかも」とつぶやき・質問。生徒が**同一画面で1問1答**で追加説明する |
+| ③学習内容の把握 | 「生徒の学習内容を把握する」でAIが教わったこと・理解したこと・不足点を要約 |
+| ④テスト | 「テストを受けてもらう」でAIがテスト問題を全問解答 → スコアリング → ランキング |
+
+さらに、**「教える際のヒントを見る」ボタン**を①②で常時表示。押すと「文法マスター（教師AI）」が
+*教え方* のヒント（「○○という文法用語に触れると良い」「対応表で整理すると良い」等）を返す。
+※ 生徒役AI（教わる側）と文法マスター（教え方を助言する側）は**別ロール**。
 
 ### 教育的根拠
 
 - **Learning by Teaching**（教えることで学ぶ）：教育心理学で実証されている学習促進効果
-- **Teachable Agent**研究（Betty's Brain等）の系譜：エージェントに教える設計が理解深化に結びつく
-- AIが「迷った箇所・不足知識」を可視化することで、学習者のメタ認知を誘発する
+- **Teachable Agent** 研究（Betty's Brain 等）の系譜：エージェントに教える設計が理解深化に結びつく
+- AIが「迷った箇所・不足知識」を**対話の中で逐次**可視化することで、学習者のメタ認知を誘発する
 
 ### 本アプリの独自性
 
 | 点 | 内容 |
 |---|---|
 | 知識制御 | Geminiに「教わった知識だけで解く」よう制約するガードレール設計 |
-| 思考過程可視化 | AIがどの説明をどう使ったか・どこで迷ったかをテキストで提示 |
+| 段階的対話 | 練習問題ごとにAIがつまずきを言語化し、生徒が1問1答で教え直す |
+| 二重のAIロール | 教わる「生徒役AI」と、教え方を助言する「文法マスター」 |
 | スコア化 | 教え方の正確性・明確さ・網羅性を100点満点でスコアリング |
-| 反復改善 | フィードバックを受けて説明を改善し、何度でも再挑戦できる |
+| サーバ側採点 | 正誤判定はサーバ側で正解ラベルと照合し確定（AIの自己採点ミスを排除） |
 
 ---
 
@@ -70,8 +86,9 @@
 | スタイリング | **Tailwind CSS** | ^4 |
 | AIモデル | **Google Gemini 2.5 Flash** | — |
 | AI SDK | **@google/generative-ai** | ^0.24.1 |
+| データベース / Realtime | **Supabase** (@supabase/supabase-js) | ^2.106.2 |
 | ユーティリティ | clsx / tailwind-merge | — |
-| ランタイム | Node.js / Vercel Edge 対応 | — |
+| ランタイム | Node.js / Vercel 対応 | — |
 
 ---
 
@@ -82,12 +99,12 @@ sodateru-ai/
 │
 ├── app/                              # Next.js App Router
 │   ├── layout.tsx                    # ルートレイアウト
-│   ├── page.tsx                      # ホーム（個人練習 + 授業入口）
+│   ├── page.tsx                      # ランディング（授業に参加 / 教員用ページ）
 │   ├── globals.css
 │   ├── join/
 │   │   └── page.tsx                  # 生徒: 参加コード入力
 │   ├── session/[code]/
-│   │   └── page.tsx                  # 生徒: 待機→授業→ランキング
+│   │   └── page.tsx                  # 生徒: 待機→レッスン（新フロー）→ランキング
 │   ├── teacher/
 │   │   ├── page.tsx                  # 教員: ログイン
 │   │   ├── dashboard/
@@ -95,24 +112,31 @@ sodateru-ai/
 │   │   └── session/[id]/
 │   │       └── page.tsx              # 教員: リアルタイムランキング・管理
 │   └── api/
-│       ├── teach/route.ts            # POST /api/teach（Gemini評価 + DB保存）
-│       ├── teacher/route.ts          # POST /api/teacher（教員認証）
+│       ├── lesson/                   # ★ 新レッスンAPI
+│       │   ├── practice/route.ts     # POST 練習対話（生徒役AIの1ターン）
+│       │   ├── hint/route.ts         # POST 文法マスターの教え方ヒント
+│       │   ├── summary/route.ts      # POST 学習内容の要約
+│       │   └── test/route.ts         # POST テスト採点 + DB保存
+│       ├── teacher/route.ts          # POST 教員認証
 │       └── sessions/
 │           ├── route.ts              # GET/POST /api/sessions
 │           └── [code]/
 │               ├── route.ts          # GET /api/sessions/[code]
-│               ├── join/route.ts     # POST /api/sessions/[code]/join
-│               ├── start/route.ts    # POST /api/sessions/[code]/start
-│               └── end/route.ts      # POST /api/sessions/[code]/end
+│               ├── join/route.ts     # POST 参加
+│               ├── start/route.ts    # POST 授業開始
+│               └── end/route.ts      # POST 授業終了
 │
 ├── components/
-│   ├── UnitSelector.tsx              # 単元選択カード
-│   ├── TeachingInput.tsx             # 説明文入力フォーム
-│   └── ResultDisplay.tsx             # スコア・思考過程表示
+│   ├── TeachingInput.tsx             # ①基礎説明フォーム（教え方ガイド付き）
+│   ├── PracticeChat.tsx              # ②練習問題ごとの1問1答対話UI
+│   ├── TeacherHintPanel.tsx          # 「教える際のヒントを見る」（文法マスター）
+│   ├── LearningSummary.tsx           # ③学習内容の把握（要約表示）
+│   ├── SolvingDisplay.tsx            # ④AIがテストを解くアニメーション
+│   └── TestResult.tsx               # スコア・思考過程・フィードバック表示
 │
 ├── lib/
-│   ├── gemini.ts                     # Gemini 2.5 Flash クライアント
-│   ├── questions.ts                  # 単元・問題セット定義
+│   ├── gemini.ts                     # Gemini クライアント（4関数）
+│   ├── questions.ts                  # 単元・問題セット定義（4択／練習・テスト）
 │   ├── supabase.ts                   # Supabaseクライアント（anon key）
 │   ├── supabase-server.ts            # Supabaseサーバークライアント（service role）
 │   └── utils.ts
@@ -179,88 +203,34 @@ npm run start
 
 ## 5. 使い方（ユーザー向け）
 
-### 【授業モード】の使い方
+本アプリは**授業モード（セッション）に一本化**されている。教員がセッションを作成し、
+生徒が参加コードで参加して学習する。
 
-#### 教員の操作手順
+### 教員の操作手順
 
 1. `http://localhost:3000/teacher` にアクセス
 2. `.env.local` に設定した `TEACHER_PASSWORD` を入力してログイン
 3. **ダッシュボード**で「授業名」と「単元」を入力してセッション作成
 4. 発行された **6文字の参加コード** を生徒に伝える（黒板・投影など）
 5. 「管理」ボタンでセッション画面を開き **「授業を開始する」** をクリック
-6. リアルタイムランキングで生徒のスコアをリアルタイム確認
+6. リアルタイムランキングで生徒のテストスコアを確認
 7. 授業終了後「授業を終了する」をクリック
 
-#### 生徒の操作手順
+### 生徒の操作手順（新フロー）
 
 1. `http://localhost:3000/join` にアクセス（またはトップページから「授業に参加する」）
 2. 教員から伝えられた **参加コード**（6文字）とニックネームを入力
 3. 待機画面で教員のスタートを待つ
-4. 授業開始後 → 教える → スコア確認 → 改善して再挑戦　を繰り返す
+4. 授業開始後、以下のステップで進む：
 
----
-
-### 【個人練習モード】の使い方
-
-トップページ下部「または個人で練習」から単元を選んで開始。
-
-### ステップ1：単元を選ぶ
-
-トップ画面に4つの英文法単元が表示されます。学習したい単元をタップ。
-
-```
-📚 単元一覧
-┌─────────────┐ ┌─────────────┐
-│ 関係副詞    │ │ 関係代名詞  │
-│ 6問         │ │ 6問         │
-└─────────────┘ └─────────────┘
-┌─────────────┐ ┌─────────────┐
-│ 受動態      │ │ 仮定法      │
-│ 6問         │ │ 6問         │
-└─────────────┘ └─────────────┘
-```
-
-### ステップ2：AIに教える
-
-テキストエリアに、選んだ文法のルールを **自分の言葉で** 説明します。
-
-**入力のコツ：**
-- 「〇〇は〜のときに使う」という使い分けを書く
-- 例文を添えると AIが理解しやすい
-- 注意点・例外も書くとスコアが上がる
-
-**入力例（関係副詞の場合）：**
-```
-関係副詞はwhere/when/why/howの4種類があります。
-whereは場所を表す先行詞につきます（the city, the placeなど）。
-whenは時を表す先行詞につきます（the day, the timeなど）。
-whyはthe reasonとセットで使います。
-howは「方法」を表し、先行詞なしで使います。
-例：This is the city where I was born.
-例：I remember the day when we met.
-```
-
-「✅ 送信できます」が出たら「🚀 AIに教える」ボタンを押す。
-
-### ステップ3：結果を確認する
-
-AIが教わった内容だけを使って問題を解き、以下を返します。
-
-| 表示項目 | 内容 |
-|---|---|
-| **教え方スコア** | 0〜100点（説明の質の総合評価） |
-| **AI正答率** | 何問正解したか（例：6/6問） |
-| **スコア内訳** | 正確性・わかりやすさ・網羅性の3指標 |
-| **AIのフィードバック** | 良かった点と具体的な改善アドバイス |
-| **AIが迷った・わからなかったこと** | 説明の穴の具体的なリスト |
-| **問題ごとの回答と思考過程** | AIがどの説明を使って解いたかを問ごとに表示 |
-
-### ステップ4：再挑戦
-
-「🔄 説明を改善して再挑戦」ボタンを押すと入力画面に戻ります。  
-前回のスコアと比較しながら、説明を改善して何度でも挑戦できます。
-
-ヘッダー右上に**最高スコア**が表示されます。
+   1. **基礎説明**：選んだ文法のルールを自分の言葉で説明（20文字以上）。
+      画面下の「教える際のヒントを見る」で文法マスターの助言も得られる。
+   2. **練習対話**：AIが練習問題（4択）を1問ずつ解く。AIのつぶやき・質問に対し、
+      テキストで「追加で教える」を繰り返す。AIが十分理解すると「次の練習問題へ」が緑になる。
+   3. **学習内容の把握**：「テストを受けてもらう」前に、AIが何を学んだかを要約で確認。
+   4. **テスト**：AIがテスト問題を解き、**教え方スコア**（0〜100）が算出される。
+   5. **結果・ランキング**：スコア内訳・フィードバック・問題別の思考過程を表示。
+      「教え方を改善して再挑戦」で最初からやり直せる（最高スコアがランキングに反映）。
 
 ---
 
@@ -269,11 +239,11 @@ AIが教わった内容だけを使って問題を解き、以下を返します
 ### 画面遷移（全体）
 
 ```
-/（ホーム）
+/（ランディング）
 ├── /join  ─────────────────────────────────────────────────┐
 │   └── /session/[code]                                      │
-│         ├── waiting: 待機（教員スタート待ち）              │ 生徒
-│         ├── active:  教える→結果→ランキング               │
+│         ├── waiting: 待機（教員スタート待ち）              │
+│         ├── active:  レッスン（下記ステップマシン）        │ 生徒
 │         └── ended:   終了・最終ランキング                  │
 │                                                            ┘
 └── /teacher  ──────────────────────────────────────────────┐
@@ -284,137 +254,169 @@ AIが教わった内容だけを使って問題を解き、以下を返します
                                                              ┘
 ```
 
-### データフロー（授業モード）
+### レッスンのステップマシン（`/session/[code]` の active 状態）
+
+```
+explain      → 基礎説明（TeachingInput）
+                送信で dialogue = [{role:"teacher", content: 説明文}] を作り practice へ
+practice     → practiceQuestions を1問ずつ <PracticeChat> で対話
+                AIが解く→つぶやき→生徒が追加で教える（1問1答）→satisfied で次へ
+                最終問題後 summary へ
+summary      → <LearningSummary>（学習内容の要約）→「テストを受けてもらう」
+test-loading → /api/lesson/test 呼び出し中
+test-solving → <SolvingDisplay>（AIがテストを解くアニメ）
+result       → <TestResult>（スコア） + RankingList
+```
+
+### 対話（dialogue）の管理
+
+レッスン全体の対話は `LessonMessage[]`（`role: "teacher" | "student"`）として
+`/session/[code]/page.tsx` が保持する。
+- `teacher` = ユーザー（教える側）の発言
+- `student` = AI（教わる側）の発言
+
+`PracticeChat` は API送信用の最新対話を `useRef` で保持し（stateの非同期性による
+取りこぼしを回避）、各ターンを親へ `onAppend` で同期する。
+要約・テストは親が保持する `dialogue` 全文を送信する（ステートレス）。
+
+### データフロー（テスト送信時）
 
 ```
 生徒ブラウザ
-  ↓ POST /api/sessions/[code]/join  { name }
-  ← { student, session }（localStorage に保存）
-
-教員ブラウザ
-  ↓ POST /api/sessions/[code]/start
-  → Supabase sessions.status = "active"
-  → 生徒画面が Realtime で検知 → 授業開始画面に切替
-
-生徒ブラウザ
-  ↓ POST /api/teach  { unit_id, explanation, student_id, session_id }
-  → Gemini 2.5 Flash で評価
+  ↓ POST /api/lesson/test  { unit_id, dialogue, student_id, session_id }
+  → Gemini 2.5 Flash がテスト問題を解答
+  → サーバ側で is_correct / ai_correct_count を確定
   → attempts に記録 / students.best_score を更新
-  ← TeachResult
+  ← TestResult
   → Supabase Realtime → 全員のランキングが即時更新
 ```
-
-### コンポーネント責務
-
-| ファイル | 責務 |
-|---|---|
-| `app/page.tsx` | ホーム（個人練習 + 授業入口） |
-| `app/join/page.tsx` | 参加コード・ニックネーム入力 |
-| `app/session/[code]/page.tsx` | 生徒セッション全体（待機・授業・ランキング） |
-| `app/teacher/page.tsx` | 教員ログイン |
-| `app/teacher/dashboard/page.tsx` | セッション作成・一覧 |
-| `app/teacher/session/[id]/page.tsx` | リアルタイムランキング・開始/終了 |
-| `components/UnitSelector` | 単元カード選択 |
-| `components/TeachingInput` | 説明入力フォーム・バリデーション |
-| `components/ResultDisplay` | スコア・思考過程・フィードバック表示 |
 
 ---
 
 ## 7. AIプロンプト設計（知識制御）
 
-本アプリの核心部分。Geminiに「教わった知識だけで解く」よう制約します。
+本アプリの核心。`lib/gemini.ts` に4つの役割を定義する。すべて
+`gemini-2.5-flash` / `temperature 0.3` / `responseMimeType: application/json`。
 
-### プロンプト構造
+### ① practiceChat（生徒役AI・練習問題の1ターン）
 
 ```
-[役割定義]
-あなたは「{unit.name}」について全く知識がない英語学習者です。
+[役割] あなたは「{unit.name}」を自分では知らない、素直で好奇心旺盛な英語学習者（生徒）です。
 
-[ルール（ガードレール）]
-- 先生が教えた内容以外の英文法知識は絶対に使ってはいけません
-- 先生が教えていないことは「教えてもらっていない」と正直に述べてください
-- 問題ごとに思考過程を日本語で示してください
+[ガードレール]
+- 先生が教えた内容以外の文法知識は使わない（知っていても「教わっていない」と振る舞う）
+- 4択なので「なんとなく」正解できることがある。正解できても、他の選択肢がなぜ
+  間違いか確信が持てない／別タイプの問題は解けないかも、と理解の浅さを言葉にする
+- もっと教えてほしいことは具体的に質問する（1問1答）
 
-[先生の説明（生徒が入力したテキスト）]
----
-{explanation}
----
+[これまでの対話] {dialogue}
+[取り組む問題] {sentence} と4択
 
-[問題]
-問題1: "..." の ___ に入る語句を答えてください。
-...
+[出力（JSON）]
+{ "message": "...", "chosenLabel": "A", "satisfied": false }
+```
+- `is_followup` フラグで「新しい問題」か「先生の追加説明への応答」かを切り替える
+- `isCorrect` は**サーバ側**で `chosenLabel === answerLabel` を照合して確定
 
-[出力形式（JSON固定）]
+### ② teachingHint（文法マスター・教え方の助言）
+
+```
+[役割] あなたは英文法の達人「文法マスター」。
+       生徒（教える人）に【どう教えればよいか】のヒントを与える。
+[方針] 答えそのものは直接言わず、教え方・説明の切り口（文法用語・対応表など）を示す。
+[出力（JSON）] { "hint": "..." }
+```
+
+### ③ learningSummary（学習内容の要約）
+
+```
+[役割] あなたは教わってきた生徒AI。何を教わり、何を理解できたかを振り返る。
+[出力（JSON）] { "taught": [...], "learned": [...], "gaps": [...], "summary": "..." }
+```
+
+### ④ runTest（テスト採点）
+
+```
+[役割] 教わった内容だけを知識として持つ生徒AI。テスト（4択）を解く。
+[出力（JSON）]
 {
-  "answers": [...],
-  "missing_knowledge": [...],
-  "teaching_score": 0-100,
-  "score_breakdown": { "accuracy": 0-100, "clarity": 0-100, "completeness": 0-100 },
-  "feedback": "...",
-  "ai_correct_count": N,
-  "total_questions": N
+  "answers": [{ "question_id": 1, "chosenLabel": "A", "thinking": "..." }],
+  "teaching_score": 75,
+  "score_breakdown": { "accuracy": 80, "clarity": 70, "completeness": 75 },
+  "feedback": "..."
 }
 ```
-
-### Gemini設定
-
-| 設定項目 | 値 | 理由 |
-|---|---|---|
-| `model` | `gemini-2.5-flash` | 高速・高精度・JSON対応 |
-| `responseMimeType` | `application/json` | 構造化出力を強制 |
-| `temperature` | `0.3` | 低めに設定し安定した評価を得る |
+- `is_correct` と `ai_correct_count` は**サーバ側**で正解ラベルと照合して確定
+- `teaching_score` / `score_breakdown` / `feedback` はAIが評価
 
 ---
 
 ## 8. データ型定義
 
-`types/index.ts` で定義されています。
+`types/index.ts` で定義。
 
 ```typescript
-// 単元（英文法カテゴリ）
-type GrammarUnit = {
-  id: string;           // "relative-adverb" など
-  name: string;         // "関係副詞"
-  description: string;  // "where / when / why / how を使った関係節"
-  questions: Question[];
-};
+// 4択の選択肢
+type Choice = { label: string; text: string };           // label: "A".."D"
 
-// 穴埋め問題
-type Question = {
+// 4択問題
+type MCQuestion = {
   id: number;
-  sentence: string;  // "This is the city ___ I was born."
-  blank: string;     // "___"
-  answer: string;    // "where"
-  hint?: string;     // "場所を表す関係副詞"
+  sentence: string;        // "This is the city ___ I was born."
+  choices: Choice[];       // 4択
+  answerLabel: string;     // 正解ラベル "A"
+  explanation?: string;    // 正解理由・誤答理由（文法マスター/採点の参照用）
+  hint?: string;
 };
 
-// Geminiが返す各問の回答
-type AIAnswer = {
+// 単元
+type GrammarUnit = {
+  id: string;
+  name: string;
+  description: string;
+  teachingGuide: TeachingGuide;       // 前提知識・出題トピック・考え方のヒント
+  practiceQuestions: MCQuestion[];    // 練習問題（1問ずつ対話）
+  testQuestions: MCQuestion[];        // テスト問題（最後に一括採点）
+};
+
+// 対話（teacher=ユーザ, student=AI）
+type LessonMessage = { role: "teacher" | "student"; content: string };
+
+// 練習問題でのAIの1ターン
+type PracticeTurn = {
+  message: string;
+  chosenLabel?: string;
+  isCorrect?: boolean;     // サーバ側で確定
+  satisfied: boolean;      // この問題を十分理解し、次へ進んでよいか
+};
+
+// 文法マスターのヒント
+type TeachingHint = { hint: string };
+
+// 学習内容の要約
+type LearningSummary = {
+  taught: string[];
+  learned: string[];
+  gaps: string[];
+  summary: string;
+};
+
+// テストの各問の回答
+type TestAnswer = {
   question_id: number;
-  answer: string;    // AIの回答
-  thinking: string;  // 思考過程（日本語）
-  is_correct: boolean;
+  chosenLabel: string;
+  thinking: string;
+  is_correct: boolean;     // サーバ側で確定
 };
 
-// /api/teach の完全なレスポンス
-type TeachResult = {
-  answers: AIAnswer[];
-  missing_knowledge: string[];     // 不足していた知識のリスト
-  teaching_score: number;          // 総合スコア（0-100）
-  score_breakdown: {
-    accuracy: number;              // 正確性
-    clarity: number;               // わかりやすさ
-    completeness: number;          // 網羅性
-  };
-  feedback: string;                // 先生へのフィードバック文
-  ai_correct_count: number;        // AIの正解数
-  total_questions: number;         // 総問題数
-};
-
-// APIリクエスト
-type TeachRequest = {
-  unit_id: string;      // 単元ID
-  explanation: string;  // 生徒が入力した説明文
+// テスト結果
+type TestResult = {
+  answers: TestAnswer[];
+  teaching_score: number;             // 教え方スコア（0-100）
+  score_breakdown: { accuracy: number; clarity: number; completeness: number };
+  feedback: string;
+  ai_correct_count: number;
+  total_questions: number;
 };
 ```
 
@@ -422,107 +424,90 @@ type TeachRequest = {
 
 ## 9. APIリファレンス
 
-### `POST /api/teach`
+すべて `POST`。レッスン系は `app/api/lesson/` 配下。
 
-生徒の説明文をGeminiに送り、評価結果を返します。
+### `POST /api/lesson/practice`
+
+練習問題における生徒役AIの1ターンを返す。
 
 **リクエスト**
-
 ```json
 {
   "unit_id": "relative-adverb",
-  "explanation": "関係副詞はwhere/when/why/howの4種類があります。..."
+  "question_id": 1,
+  "dialogue": [{ "role": "teacher", "content": "..." }],
+  "is_followup": false
 }
 ```
-
-| フィールド | 型 | 必須 | 説明 |
-|---|---|---|---|
-| `unit_id` | string | ✅ | 単元ID（下記一覧参照） |
-| `explanation` | string | ✅ | 生徒の説明文（20文字以上） |
-
-**レスポンス（200 OK）**
-
+**レスポンス**
 ```json
-{
-  "answers": [
-    {
-      "question_id": 1,
-      "answer": "where",
-      "thinking": "先生がwhereは場所を表す先行詞につくと説明したので...",
-      "is_correct": true
-    }
-  ],
-  "missing_knowledge": ["howの具体的な例文がなかった"],
-  "teaching_score": 75,
-  "score_breakdown": {
-    "accuracy": 95,
-    "clarity": 80,
-    "completeness": 40
-  },
-  "feedback": "whereとwhenの説明は例文が明確で分かりやすかった。howの例文を追加するとさらに良くなります。",
-  "ai_correct_count": 6,
-  "total_questions": 6
-}
+{ "message": "...", "chosenLabel": "A", "isCorrect": true, "satisfied": false }
 ```
 
-**エラーレスポンス**
+### `POST /api/lesson/hint`
 
-| ステータス | 条件 | メッセージ |
-|---|---|---|
-| 400 | unit_id または explanation が未指定 | `"unit_id と explanation は必須です"` |
-| 400 | 説明文が20文字未満 | `"説明文が短すぎます。..."` |
-| 404 | 存在しない unit_id | `"指定された単元が見つかりません"` |
-| 500 | Gemini APIエラー | `"AI評価中にエラーが発生しました。..."` |
+文法マスターが「教え方」のヒントを返す。
+
+**リクエスト**：`{ unit_id, dialogue, question_id? }`
+**レスポンス**：`{ "hint": "..." }`
+
+### `POST /api/lesson/summary`
+
+AIの学習内容を要約する。
+
+**リクエスト**：`{ unit_id, dialogue }`
+**レスポンス**：`{ taught, learned, gaps, summary }`
+
+### `POST /api/lesson/test`
+
+テスト問題をAIが解き、スコアを確定してDBに保存する。
+
+**リクエスト**：`{ unit_id, dialogue, student_id?, session_id? }`
+（`student_id` と `session_id` がある場合のみ `attempts` 記録・`best_score` 更新）
+**レスポンス**：`TestResult`
+
+**エラー（共通）**
+
+| ステータス | 条件 |
+|---|---|
+| 400 | 必須フィールド未指定 |
+| 404 | 存在しない unit_id / question_id |
+| 500 | Gemini APIエラー / パース失敗 |
 
 ---
 
-## 10. 問題セット一覧
+## 10. 問題セット（差し替え方法）
 
-`lib/questions.ts` に定義。各単元6問の穴埋め形式。
+`lib/questions.ts` に4単元（関係副詞・関係代名詞・受動態・仮定法）を定義。
+**収録されている問題はサンプル**であり、自由に差し替えてよい。
 
-### 関係副詞（`relative-adverb`）
+各単元は以下を持つ：
 
-| # | 問題文 | 正解 |
-|---|---|---|
-| 1 | This is the city ___ I was born. | where |
-| 2 | I remember the day ___ we first met. | when |
-| 3 | That is the reason ___ he left early. | why |
-| 4 | The library ___ I study every day is very quiet. | where |
-| 5 | Do you know the way ___ she solved the problem? | how |
-| 6 | Summer is the season ___ I love most. | when |
+- `teachingGuide`：前提知識・出題トピック・考え方のヒント（①基礎説明の足場掛け）
+- `practiceQuestions`：練習問題（3問程度。1問ずつAIと対話）
+- `testQuestions`：テスト問題（6問程度。最後に一括採点）
 
-### 関係代名詞（`relative-pronoun`）
+### 問題の書き方（例）
 
-| # | 問題文 | 正解 |
-|---|---|---|
-| 1 | The man ___ lives next door is a doctor. | who |
-| 2 | The book ___ I read yesterday was interesting. | which |
-| 3 | She is the only person ___ can help me. | who |
-| 4 | This is the house ___ I grew up in. | which |
-| 5 | The students ___ passed the exam were happy. | who |
-| 6 | The movie ___ we watched last night was amazing. | which |
+```typescript
+{
+  id: 1,
+  sentence: "This is the city ___ I was born.",
+  choices: [
+    { label: "A", text: "where" },
+    { label: "B", text: "when" },
+    { label: "C", text: "which" },
+    { label: "D", text: "who" },
+  ],
+  answerLabel: "A",
+  explanation: "先行詞 the city は場所なので where。…（採点・マスターの参照用）",
+  hint: "場所を表す関係副詞",
+}
+```
 
-### 受動態（`passive-voice`）
-
-| # | 問題文 | 正解 |
-|---|---|---|
-| 1 | This letter ___ written by Tom yesterday. | was |
-| 2 | English ___ spoken all over the world. | is |
-| 3 | The cake has ___ eaten by the children. | been |
-| 4 | The window ___ broken by the ball. | was |
-| 5 | The new museum will ___ opened next year. | be |
-| 6 | These shoes ___ made in Italy. | were |
-
-### 仮定法（`subjunctive`）
-
-| # | 問題文 | 正解 |
-|---|---|---|
-| 1 | If I ___ a bird, I could fly. | were |
-| 2 | If she had studied harder, she ___ have passed. | would |
-| 3 | I wish I ___ taller. | were |
-| 4 | If it ___ raining, we would go out. | weren't |
-| 5 | He talks as if he ___ everything. | knew |
-| 6 | If I ___ known the answer, I would have told you. | had |
+- `choices` は4択を想定（A〜D）。
+- `answerLabel` が正解ラベル。正誤判定はこのラベルとの照合でサーバ側が行う。
+- `explanation` は任意。文法マスターの助言やフィードバックの質を高める参照情報。
 
 ---
 
@@ -530,13 +515,18 @@ type TeachRequest = {
 
 ### 教え方スコア（0〜100点）
 
-Geminiが以下の3観点を評価し、総合スコアを算出します。
+テスト時にGeminiが以下の3観点で評価し、総合スコアを算出する。
 
 | 観点 | 内容 | 高スコアの条件 |
 |---|---|---|
 | **正確性**（accuracy） | 説明の内容が文法的に正しいか | 誤った説明・誤用がない |
 | **わかりやすさ**（clarity） | 表現が明瞭で理解しやすいか | 簡潔・具体的・例文あり |
 | **網羅性**（completeness） | 問題を解くのに必要な情報が揃っているか | 全パターン・例外も網羅 |
+
+### AI正答率（サーバ側で確定）
+
+各テスト問題の `is_correct` は、AIが選んだ `chosenLabel` を正解 `answerLabel` と
+**サーバ側で照合**して確定する（AIの自己採点に依存しない）。`ai_correct_count` も同様。
 
 ### スコアの目安
 
@@ -546,60 +536,63 @@ Geminiが以下の3観点を評価し、総合スコアを算出します。
 | 60〜79 | 改善の余地あり | 黄 |
 | 0〜59 | 要改善 | 赤 |
 
-### AI正答率との関係
+### ランキング
 
-- 説明の**正確性**が低い → AIが誤答する（教えた内容が間違っていた）
-- 説明の**網羅性**が低い → AIが問題を解けない（必要な情報がなかった）
-- 説明の**わかりやすさ**が低い → AIが迷う（曖昧な説明で思考過程が長くなる）
+`students.best_score` に**テスト得点の最大値**が保存され、ランキングに反映される。
+「教え方を改善して再挑戦」で更新を狙える。
 
 ---
 
 ## 12. Supabaseセットアップ
 
-### DBテーブル構成
+### DBテーブル構成（`supabase/schema.sql`）
 
 | テーブル | 役割 |
 |---|---|
 | `sessions` | 授業セッション（コード・単元・ステータス） |
 | `students` | セッション参加者（名前・ベストスコア・試行回数） |
-| `attempts` | 各試行の記録（説明文・スコア・Gemini応答JSON） |
+| `attempts` | 各試行の記録（教えた対話全文・スコア・テスト結果JSON） |
+
+> `attempts.explanation` には、その回のレッスン対話（`dialogue`）全文を
+> テキスト化して保存する。`result_json` には `TestResult` を保存する。
+> スキーマ自体は初期版から変更なし。
 
 ### Realtime 設定
 
-`supabase/schema.sql` の最後に以下が含まれています：
+`supabase/schema.sql` の最後に以下が含まれる：
 
 ```sql
 ALTER PUBLICATION supabase_realtime ADD TABLE students;
 ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
 ```
 
-Supabase ダッシュボードの **Database > Replication** で `students` と `sessions` テーブルの Realtime が有効になっているか確認してください。
+Supabase ダッシュボードの **Database > Replication** で `students` と `sessions` の
+Realtime が有効か確認すること。
 
 ### 教員認証の仕組み
 
-簡易的なパスワード認証を採用：
+簡易的なパスワード認証：
 
 1. 教員が `/teacher` でパスワード入力
-2. `POST /api/teacher` でサーバー側の `TEACHER_PASSWORD` 環境変数と照合
+2. `POST /api/teacher` でサーバ側の `TEACHER_PASSWORD` 環境変数と照合
 3. 一致すれば `localStorage` にパスワードを保存
 4. 以降の教員用APIコールは `x-teacher-password` ヘッダーにパスワードを付与
 
-> **注意**: これは試運転用の簡易認証です。本番運用時は Supabase Auth などへの移行を検討してください。
+> **注意**: これは試運転用の簡易認証。本番運用時は Supabase Auth 等への移行を検討。
 
 ---
 
-## 13. 今後の拡張予定（Phase 3）
-
-実際の試運転を経てブラッシュアップ後に構築予定。
+## 13. 今後の拡張予定
 
 | 機能 | 内容 |
 |---|---|
 | 単元追加 | 不定詞・動名詞・比較表現など |
-| カスタム問題 | 教員が独自の穴埋め問題を登録できる |
+| カスタム問題 | 教員が独自の4択問題（練習・テスト）を登録できる |
 | 難易度設定 | 問題の難易度をAIが動的に調整 |
 | 生徒の成長グラフ | スコア推移の可視化 |
-| 忘却機能 | 教え方の品質に応じてAIが意図的に「忘れる」実装 |
+| 採点の堅牢化 | Gemini応答のスキーマ検証（zod等）・リトライ |
+| レート制限 | `/api/lesson/*` の濫用・課金対策 |
 
 ---
 
-*作成日：2026-05-26 / Phase 1+2 実装完了時点*
+*作成日：2026-05-26 / 対話型フロー刷新：2026-06-06*
