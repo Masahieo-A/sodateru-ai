@@ -119,6 +119,8 @@ export default function SessionPage({
   const [lessonStep, setLessonStep] = useState<LessonStep>("explain");
   const [dialogue, setDialogue] = useState<LessonMessage[]>([]);
   const [practiceIndex, setPracticeIndex] = useState(0);
+  // 練習問題の「初回回答」で間違えた数（メタ認知のための“あえて間違え”判定に使う）
+  const [initialWrongCount, setInitialWrongCount] = useState(0);
   const [testResult, setTestResult] = useState<TR | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -242,8 +244,14 @@ export default function SessionPage({
   const handleExplainSubmit = (text: string) => {
     setDialogue([{ role: "teacher", content: text }]);
     setPracticeIndex(0);
+    setInitialWrongCount(0);
     setError(null);
     setLessonStep("practice");
+  };
+
+  // 練習問題の初回回答の正誤を集計
+  const handleFirstAnswer = (isCorrect: boolean) => {
+    if (!isCorrect) setInitialWrongCount((n) => n + 1);
   };
 
   // 練習問題：次へ
@@ -286,6 +294,7 @@ export default function SessionPage({
   const handleRetry = () => {
     setDialogue([]);
     setPracticeIndex(0);
+    setInitialWrongCount(0);
     setTestResult(null);
     setError(null);
     setLessonStep("explain");
@@ -463,6 +472,13 @@ export default function SessionPage({
                 onAppend={appendDialogue}
                 onNext={handlePracticeNext}
                 isLast={practiceIndex === unit.practiceQuestions.length - 1}
+                onFirstAnswer={handleFirstAnswer}
+                // このままだと全問正解（初回ミス0）かつ最後の問題なら、
+                // メタ認知のため“あえて1問間違える”
+                forceStumble={
+                  practiceIndex === unit.practiceQuestions.length - 1 &&
+                  initialWrongCount === 0
+                }
               />
               <TeacherHintPanel
                 key={`hint-${practiceIndex}`}

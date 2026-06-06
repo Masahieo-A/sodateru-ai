@@ -12,8 +12,16 @@ export async function POST(req: NextRequest) {
       dialogue?: LessonMessage[];
       is_followup?: boolean;
       exchange_count?: number;
+      force_stumble?: boolean;
     } = await req.json();
-    const { unit_id, question_id, dialogue, is_followup, exchange_count } = body;
+    const {
+      unit_id,
+      question_id,
+      dialogue,
+      is_followup,
+      exchange_count,
+      force_stumble,
+    } = body;
 
     if (!unit_id || question_id == null || !dialogue) {
       return NextResponse.json(
@@ -43,7 +51,8 @@ export async function POST(req: NextRequest) {
       question,
       dialogue,
       !!is_followup,
-      exchange_count ?? 0
+      exchange_count ?? 0,
+      !!force_stumble
     );
     return NextResponse.json(turn);
   } catch (err) {

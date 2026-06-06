@@ -70,6 +70,18 @@ export type MCQuestion = {
    */
   explanation?: string;
   hint?: string;
+  /**
+   * 「もっともらしい誤解」用の設定（任意）。
+   * 全問正解しそうな場合に、メタ認知のきっかけとして“あえて1問間違える”際に使う。
+   * - label: 間違えやすい誤答ラベル（answerLabel 以外）
+   * - misconception: その誤答に至る、生徒の説明の解釈ズレ・過剰一般化など
+   *   ※「教わった内容の否定」ではなく、自然な誤読・取り違えとして表現する素材
+   * 未設定でも動作する（その場合は最初の誤答ラベル＋汎用的な誤解表現を使う）。
+   */
+  commonMistake?: {
+    label: string;
+    misconception: string;
+  };
 };
 
 export type GrammarUnit = {

@@ -74,6 +74,11 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         explanation:
           "「方法」は how だが、the way と how は併用できない。the way があるので how 単独ではなく…という引っかけ。正しくは the way / how のどちらか一方。ここでは how を選ぶ（the way how は誤用）。",
         hint: "方法を表す関係副詞（the way how は不可）",
+        commonMistake: {
+          label: "B",
+          misconception:
+            "先生に「how＝方法」と教わったので、the way（方法）と how を一緒に並べれば『方法』をより正確に表せると思い込み、the way how を選んでしまう（the way と how は併用できない、という点までは咀嚼しきれていない）。",
+        },
       },
     ],
     testQuestions: [
@@ -215,6 +220,11 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         explanation:
           "the only person のように only が付くと that が好まれる。who も可だが選択肢では that。which は物用、what は先行詞を含むため不可。",
         hint: "only が付く先行詞は that が好まれる",
+        commonMistake: {
+          label: "B",
+          misconception:
+            "the only person を「私を助けてくれる人（そのもの）」とひとかたまりで捉えてしまい、先行詞を含む関係代名詞 what を使えると思い込む（先行詞 person がすでにあるので what は不可、という整理が追いついていない）。",
+        },
       },
     ],
     testQuestions: [
@@ -360,6 +370,11 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         explanation:
           "現在完了の受動態 has been + 過去分詞。has の後ろは been。was/being は不可。",
         hint: "現在完了の受動態（has been + p.p.）",
+        commonMistake: {
+          label: "B",
+          misconception:
+            "「食べられた」という過去の出来事だから was を入れればよいと思い込み、has was eaten のような形を、過去の受動態のつもりで選んでしまう（has の後ろは過去分詞 been になる、という現在完了の形までは結びついていない）。",
+        },
       },
     ],
     testQuestions: [
@@ -502,6 +517,11 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         explanation:
           "wish + 仮定法過去。現在の事実に反する願望で be動詞は were。",
         hint: "wish + 仮定法過去",
+        commonMistake: {
+          label: "B",
+          misconception:
+            "主語が I なので、be動詞はふつうの過去形 was でよいと思い込んでしまう（仮定法では主語に関わらず were を使う、という点を取りこぼしている）。",
+        },
       },
     ],
     testQuestions: [

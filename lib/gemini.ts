@@ -62,23 +62,50 @@ export async function practiceChat(
   question: MCQuestion,
   dialogue: LessonMessage[],
   isFollowup: boolean,
-  exchangeCount: number
+  exchangeCount: number,
+  forceStumble = false
 ): Promise<PracticeTurn> {
   const model = getModel(500);
 
-  const phase = isFollowup
-    ? `【今回は「追加説明への応答」です】
+  // forceStumble: 全問正解しそうな場合に、メタ認知のきっかけとして
+  // “もっともらしい誤解”で1問だけあえて間違える（初回ターンのみ）
+  const stumbleActive = forceStumble && !isFollowup;
+  const wrongChoices = question.choices.filter(
+    (c) => c.label.toUpperCase() !== question.answerLabel.toUpperCase()
+  );
+  const targetLabel =
+    question.commonMistake?.label ?? wrongChoices[0]?.label ?? question.answerLabel;
+  const targetText =
+    question.choices.find((c) => c.label === targetLabel)?.text ?? "";
+
+  let phase: string;
+  if (stumbleActive) {
+    phase = `【今回は「新しい問題」ですが、あなたは“もっともらしい誤解”をしてしまいます】
+あなたはこれまでの問題は理解できていますが、この問題だけは、先生の説明を完全には咀嚼しきれず、解釈のズレ・思い込みから【誤った選択肢】を選んでしまいます。
+- あなたが選ぶのは「${targetLabel}（${targetText}）」です。これは実は誤答ですが、あなたは（もっともらしく）それが正しいと思い込んでいます。
+${
+  question.commonMistake
+    ? `- あなたの思い込み（誤解）の中身：「${question.commonMistake.misconception}」。これを自分の言葉で、自然な生徒の口調で語ってください。`
+    : `- 「教わったルールをこの問題にも当てはめたら ${targetLabel} になるはず」といった、もっともらしい過剰一般化・取り違えを自分の言葉で表現してください。`
+}
+- 🚫 教わった内容そのものを否定したり、別人のように雑に振る舞ってはいけません。あくまで「自分なりに考えたら、こう解釈してしまった」という素直な誤解として表現します。
+- 最後に「これで合っているか、ちょっと自信がないです」と先生に確認を促してください。
+- satisfied は false。`;
+  } else if (isFollowup) {
+    phase = `【今回は「追加説明への応答」です】
 先生があなたの質問・つぶやきに答えてくれました。あなたは“学んで成長する生徒”です。次の方針で応答してください：
-1. 教わった内容を自分の言葉で一言だけ言い換えて「分かりました！」と理解・成長を示す。
+1. 教わった内容を自分の言葉で一言だけ言い換えて「分かりました！」と理解・成長を示す。もし前の自分の答えが間違っていたと気づいたら、正しい選択肢に選び直してください。
 2. 🚫【最重要】すでに先生が答えてくれた質問を、言い回しを変えてもう一度きいてはいけません。同じ論点を蒸し返さないこと。
 3. 疑問が解消したら、たとえ完璧な理解でなくても satisfied を true にして次へ進みます（粘りすぎない・追い詰めない）。
 4. 例外として、説明がどうしても理解できない／前と全く別の新しい疑問が出た場合のみ satisfied を false にし、【前回と違う】新しい質問を1つだけします。
-5. ただし、これまで ${exchangeCount} 回やりとりしています。2回以上なら、必ず satisfied を true にして気持ちよく次に進んでください。`
-    : `【今回は「新しい問題」です】
+5. ただし、これまで ${exchangeCount} 回やりとりしています。2回以上なら、必ず satisfied を true にして気持ちよく次に進んでください。`;
+  } else {
+    phase = `【今回は「新しい問題」です】
 教わった内容で考え、選択肢を1つ選び、理由を一言で述べてください。
 そのうえで、もし「他の選択肢がなぜ違うのか確信が持てない」「この考え方だと別のタイプの問題は解けないかも」といった“引っかかり”が1つだけあれば、それを具体的に質問してください（先生が深く教えるきっかけになります）。
 - 質問・引っかかりを述べるなら satisfied は false。
 - 特に引っかかりがなく自信があるなら satisfied は true。`;
+  }
 
   const prompt = `
 あなたは「${unit.name}」を自分では知らない、素直で前向きな生徒AIです。
@@ -107,6 +134,13 @@ ${formatChoices(question)}
 
   const result = await model.generateContent(prompt);
   const turn = parseJson<PracticeTurn>(result.response.text());
+
+  // forceStumble 時は、プログラム側で誤答ラベルを確定して必ず1問間違えさせる
+  // （AIが誤って正答を選んでも上書きし、確実に「間違い→気づき→訂正」を成立させる）
+  if (stumbleActive) {
+    turn.chosenLabel = targetLabel;
+    turn.satisfied = false;
+  }
 
   // 正誤はサーバ側で確定（AIの自己申告に依存しない）
   if (turn.chosenLabel) {

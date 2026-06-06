@@ -19,6 +19,13 @@ type Props = {
   /** 次の問題へ（最終問題なら学習まとめへ） */
   onNext: () => void;
   isLast: boolean;
+  /**
+   * プログラムが「このままだと全問正解」と判断した場合に true。
+   * 初回回答であえて“もっともらしい誤解”をさせ、メタ認知のきっかけを作る。
+   */
+  forceStumble?: boolean;
+  /** 初回回答の正誤を親へ通知（全問正解判定の集計に使う） */
+  onFirstAnswer?: (isCorrect: boolean) => void;
 };
 
 export function PracticeChat({
@@ -30,6 +37,8 @@ export function PracticeChat({
   onAppend,
   onNext,
   isLast,
+  forceStumble = false,
+  onFirstAnswer,
 }: Props) {
   // この問題で表示する吹き出し（この問題開始以降のやりとり）
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -58,6 +67,8 @@ export function PracticeChat({
           dialogue: convoRef.current,
           is_followup: isFollowup,
           exchange_count: teacherRepliesRef.current,
+          // 初回ターンのみ forceStumble を送る（あえて1問間違えさせる）
+          force_stumble: !isFollowup && forceStumble,
         }),
       });
       const data = await res.json();
@@ -77,6 +88,8 @@ export function PracticeChat({
           isCorrect: turn.isCorrect,
         },
       ]);
+      // 初回回答の正誤を親に通知（全問正解しそうかの集計に使う）
+      if (!isFollowup) onFirstAnswer?.(!!turn.isCorrect);
       // 安全弁：2回以上教えたら、AIの応答に関わらず次へ進めるようにする
       // （同じ質問の繰り返しで生徒が足止めされ、意欲を失うのを防ぐ）
       setSatisfied(!!turn.satisfied || teacherRepliesRef.current >= 2);
