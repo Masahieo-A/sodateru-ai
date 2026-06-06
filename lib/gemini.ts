@@ -12,12 +12,18 @@ import {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-function getModel() {
+// 軽量・低レイテンシのモデル。2.5-flash は隠れた思考トークンで遅くなるため、
+// 既定でほぼ思考しない flash-lite を使う（応答が約2秒台に短縮される）。
+const MODEL = "gemini-2.5-flash-lite";
+
+/** maxOutputTokens を指定してモデルを取得（出力を引き締めて生成時間を短縮） */
+function getModel(maxOutputTokens: number) {
   return genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: MODEL,
     generationConfig: {
       responseMimeType: "application/json",
       temperature: 0.3,
+      maxOutputTokens,
     },
   });
 }
@@ -57,7 +63,7 @@ export async function practiceChat(
   dialogue: LessonMessage[],
   isFollowup: boolean
 ): Promise<PracticeTurn> {
-  const model = getModel();
+  const model = getModel(500);
 
   const prompt = `
 あなたは「${unit.name}」について自分では知識を持たない、素直で好奇心旺盛な英語学習者（生徒）です。
@@ -67,7 +73,7 @@ export async function practiceChat(
 - 先生が教えてくれた内容以外の文法知識は使わないこと。一般常識として知っていても、教わっていなければ「教わっていないので分からない」と振る舞う。
 - 4択なので「なんとなく」で正解できてしまうことがある。だからこそ、選んだ理由を述べ、正解できた場合でも「他の選択肢がなぜ間違いなのか確信が持てない」「この考え方だと、別のタイプの問題は解けないかもしれない」など、理解の浅い部分を素直に言葉にすること。
 - 先生にもっと教えてほしいことがあれば、具体的に質問すること（1問1答形式）。
-- 口調はフレンドリーで、生徒らしく。日本語で2〜4文程度。
+- 口調はフレンドリーで、生徒らしく。日本語で2〜3文、簡潔に（長くしない）。
 
 【これまでの先生とのやりとり】
 ${formatDialogue(dialogue)}
@@ -113,7 +119,7 @@ export async function teachingHint(
   dialogue: LessonMessage[],
   question?: MCQuestion
 ): Promise<TeachingHint> {
-  const model = getModel();
+  const model = getModel(500);
 
   const prompt = `
 あなたは英文法の達人「文法マスター」です。
@@ -153,7 +159,7 @@ export async function learningSummary(
   unit: GrammarUnit,
   dialogue: LessonMessage[]
 ): Promise<LearningSummary> {
-  const model = getModel();
+  const model = getModel(800);
 
   const prompt = `
 あなたは「${unit.name}」を先生（ユーザー）から教わってきた生徒AIです。
@@ -182,7 +188,7 @@ export async function runTest(
   unit: GrammarUnit,
   dialogue: LessonMessage[]
 ): Promise<TestResult> {
-  const model = getModel();
+  const model = getModel(1500);
 
   const questionsText = unit.testQuestions
     .map(
@@ -201,8 +207,8 @@ ${formatDialogue(dialogue)}
 【テスト問題】
 ${questionsText}
 
-各問について、教わった内容のどの部分を使って考えたか（思考過程）を日本語で示し、選択肢を1つ選んでください。
-教わっていなくて解けない場合は、その旨を thinking に書き、最も妥当だと思うものを選んでください。
+各問について、教わった内容のどの部分を使って考えたか（思考過程）を日本語で**1文・簡潔に**示し、選択肢を1つ選んでください。
+教わっていなくて解けない場合は、その旨を thinking に短く書き、最も妥当だと思うものを選んでください。
 
 以下のJSON形式【のみ】で回答してください：
 {

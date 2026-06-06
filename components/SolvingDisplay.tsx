@@ -10,9 +10,9 @@ type Props = {
 };
 
 /** 問題1問あたり「考え中」を見せる時間 (ms) */
-const THINK_DELAY = 1400;
+const THINK_DELAY = 450;
 /** 答え表示から次の問題へ進むまでの時間 (ms) */
-const NEXT_DELAY = 700;
+const NEXT_DELAY = 200;
 
 /** テスト：AIが testQuestions を1問ずつ解いていくアニメーション */
 export function SolvingDisplay({ result, unit, onDone }: Props) {
