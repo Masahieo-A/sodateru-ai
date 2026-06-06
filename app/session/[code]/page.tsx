@@ -3,14 +3,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TeachingInput } from "@/components/TeachingInput";
-import { ResultDisplay } from "@/components/ResultDisplay";
+import { TeacherHintPanel } from "@/components/TeacherHintPanel";
+import { PracticeChat } from "@/components/PracticeChat";
+import { LearningSummary } from "@/components/LearningSummary";
 import { SolvingDisplay } from "@/components/SolvingDisplay";
+import { TestResult } from "@/components/TestResult";
 import { getUnitById } from "@/lib/questions";
 import { supabase } from "@/lib/supabase";
-import type { Session, Student, TeachResult, GrammarUnit } from "@/types";
+import type {
+  Session,
+  Student,
+  GrammarUnit,
+  LessonMessage,
+  TestResult as TR,
+} from "@/types";
 
-// teach → loading → solving → result
-type Step = "teach" | "loading" | "solving" | "result";
+// レッスンのステップ
+type LessonStep =
+  | "explain" // 基礎説明
+  | "practice" // 練習問題で対話
+  | "summary" // 学習内容の把握
+  | "test-loading" // テスト評価中
+  | "test-solving" // AIがテストを解くアニメ
+  | "result"; // スコア表示
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -100,10 +115,11 @@ export default function SessionPage({
   const [studentName, setStudentName] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const [step, setStep] = useState<Step>("teach");
-  const [explanation, setExplanation] = useState("");
-  const [result, setResult] = useState<TeachResult | null>(null);
-  const [attemptCount, setAttemptCount] = useState(0);
+  // レッスン状態
+  const [lessonStep, setLessonStep] = useState<LessonStep>("explain");
+  const [dialogue, setDialogue] = useState<LessonMessage[]>([]);
+  const [practiceIndex, setPracticeIndex] = useState(0);
+  const [testResult, setTestResult] = useState<TR | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
@@ -216,44 +232,63 @@ export default function SessionPage({
   }, []);
 
   // ============================================================
-  // 教える処理
+  // レッスン操作
   // ============================================================
-  const handleTeachSubmit = async (text: string) => {
-    if (!unit || !studentId || !sessionId) return;
-    setExplanation(text);
-    setStep("loading");
-    setError(null);
+  const appendDialogue = useCallback((m: LessonMessage) => {
+    setDialogue((d) => [...d, m]);
+  }, []);
 
+  // 基礎説明の送信 → 練習へ
+  const handleExplainSubmit = (text: string) => {
+    setDialogue([{ role: "teacher", content: text }]);
+    setPracticeIndex(0);
+    setError(null);
+    setLessonStep("practice");
+  };
+
+  // 練習問題：次へ
+  const handlePracticeNext = () => {
+    if (!unit) return;
+    if (practiceIndex < unit.practiceQuestions.length - 1) {
+      setPracticeIndex((i) => i + 1);
+    } else {
+      setLessonStep("summary");
+    }
+  };
+
+  // テスト開始
+  const handleStartTest = async () => {
+    if (!unit || !studentId || !sessionId) return;
+    setLessonStep("test-loading");
+    setError(null);
     try {
-      const res = await fetch("/api/teach", {
+      const res = await fetch("/api/lesson/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unit_id: unit.id,
-          explanation: text,
+          dialogue,
           student_id: studentId,
           session_id: sessionId,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "評価に失敗しました");
-      }
-
-      setResult(data as TeachResult);
-      setAttemptCount((c) => c + 1);
-      // loading → solving（AIがリアルタイムで解く画面へ）
-      setStep("solving");
+      if (!res.ok) throw new Error(data.error ?? "テストに失敗しました");
+      setTestResult(data as TR);
+      setLessonStep("test-solving");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
-      setStep("teach");
+      setLessonStep("summary");
     }
   };
 
+  // 最初からやり直す（教え方を改善して再挑戦）
   const handleRetry = () => {
-    setStep("teach");
+    setDialogue([]);
+    setPracticeIndex(0);
+    setTestResult(null);
     setError(null);
+    setLessonStep("explain");
   };
 
   // ============================================================
@@ -294,9 +329,8 @@ export default function SessionPage({
 
   if (!session || !unit) return null;
 
-  // 「教えている最中」か判定（この間はトップボタンを非表示）
-  const isTeaching =
-    session.status === "active" && (step === "teach" || step === "loading");
+  // 「レッスン中」か判定（この間はトップボタンを非表示）
+  const inLesson = session.status === "active" && lessonStep !== "result";
 
   // ============================================================
   // 共通ヘッダー
@@ -315,8 +349,7 @@ export default function SessionPage({
           <span className="text-xs bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full">
             {unit.name}
           </span>
-          {/* 教えている最中以外はトップへ戻るボタンを表示 */}
-          {!isTeaching && (
+          {!inLesson && (
             <a
               href="/"
               className="text-sm text-gray-400 hover:text-gray-700 font-medium transition flex items-center gap-1"
@@ -389,56 +422,90 @@ export default function SessionPage({
   }
 
   // ============================================================
-  // 授業中 (active)
+  // 授業中 (active) — 新レッスンフロー
   // ============================================================
   if (session.status === "active") {
+    const currentQuestion = unit.practiceQuestions[practiceIndex];
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col">
         <Header />
-        <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6">
+        <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
               ⚠️ {error}
             </div>
           )}
 
-          {/* 教える画面 */}
-          {(step === "teach" || step === "loading") && (
+          {/* 基礎説明 */}
+          {lessonStep === "explain" && (
             <>
-              {attemptCount > 0 && result && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700">
-                  <span className="font-bold">前回のスコア: {result.teaching_score}点</span>
-                  　説明を改善して再挑戦しましょう！
-                </div>
-              )}
               <TeachingInput
                 unit={unit}
-                onSubmit={handleTeachSubmit}
-                isLoading={step === "loading"}
-                initialValue={explanation}
+                onSubmit={handleExplainSubmit}
+                isLoading={false}
+                initialValue={dialogue[0]?.content ?? ""}
+              />
+              <TeacherHintPanel unit={unit} dialogue={dialogue} />
+            </>
+          )}
+
+          {/* 練習問題で対話 */}
+          {lessonStep === "practice" && currentQuestion && (
+            <>
+              <PracticeChat
+                key={practiceIndex}
+                unit={unit}
+                question={currentQuestion}
+                questionIndex={practiceIndex}
+                totalQuestions={unit.practiceQuestions.length}
+                dialogue={dialogue}
+                onAppend={appendDialogue}
+                onNext={handlePracticeNext}
+                isLast={practiceIndex === unit.practiceQuestions.length - 1}
+              />
+              <TeacherHintPanel
+                key={`hint-${practiceIndex}`}
+                unit={unit}
+                dialogue={dialogue}
+                questionId={currentQuestion.id}
               />
             </>
           )}
 
-          {/* AIリアルタイム解答画面 */}
-          {step === "solving" && result && (
-            <SolvingDisplay
-              result={result}
+          {/* 学習内容の把握 */}
+          {lessonStep === "summary" && (
+            <LearningSummary
               unit={unit}
-              onDone={() => setStep("result")}
+              dialogue={dialogue}
+              onStartTest={handleStartTest}
+              onBack={() => setLessonStep("practice")}
             />
           )}
 
-          {/* 結果画面 */}
-          {step === "result" && result && (
+          {/* テスト評価中 */}
+          {lessonStep === "test-loading" && (
+            <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-8 text-center">
+              <div className="text-4xl mb-3 animate-bounce">📝</div>
+              <p className="text-indigo-600 font-bold">
+                AIがテストに挑戦しています...
+              </p>
+            </div>
+          )}
+
+          {/* テスト解答アニメ */}
+          {lessonStep === "test-solving" && testResult && (
+            <SolvingDisplay
+              result={testResult}
+              unit={unit}
+              onDone={() => setLessonStep("result")}
+            />
+          )}
+
+          {/* 結果 */}
+          {lessonStep === "result" && testResult && (
             <>
-              <ResultDisplay
-                result={result}
-                unit={unit}
-                explanation={explanation}
-                onRetry={handleRetry}
-                attemptCount={attemptCount}
-              />
+              <TestResult result={testResult} unit={unit} onRetry={handleRetry} />
               {studentId && (
                 <RankingList students={students} currentStudentId={studentId} />
               )}

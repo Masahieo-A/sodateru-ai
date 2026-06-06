@@ -1,5 +1,15 @@
 import { GrammarUnit } from "@/types";
 
+// ============================================================
+// 育てるAI — 単元・問題データ
+//
+// ⚠️ ここの problem コンテンツ（practiceQuestions / testQuestions）は
+//    サンプルです。各単元ごとに自由に差し替えてください。
+//    - practiceQuestions: AIと1問ずつ対話しながら教え込む練習用（3問程度）
+//    - testQuestions:     最後にAIが解いてスコアを確定するテスト用（6問程度）
+//    各問は4択（choices）＋正解ラベル（answerLabel）で定義します。
+// ============================================================
+
 export const GRAMMAR_UNITS: GrammarUnit[] = [
   {
     id: "relative-adverb",
@@ -22,48 +32,123 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         "関係副詞は節の中で副詞の代わりをしている。たとえば where は「そこで（and there）」に言い換えられる、と説明するとイメージが伝わりやすいかも",
       ],
     },
-    questions: [
+    practiceQuestions: [
       {
         id: 1,
         sentence: "This is the city ___ I was born.",
-        blank: "___",
-        answer: "where",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "when" },
+          { label: "C", text: "which" },
+          { label: "D", text: "who" },
+        ],
+        answerLabel: "A",
+        explanation:
+          "先行詞 the city は「場所」なので where。when は時、which/who は関係代名詞で副詞の働きをしないため不可。",
         hint: "場所を表す関係副詞",
       },
       {
         id: 2,
         sentence: "I remember the day ___ we first met.",
-        blank: "___",
-        answer: "when",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "when" },
+          { label: "C", text: "why" },
+          { label: "D", text: "how" },
+        ],
+        answerLabel: "B",
+        explanation:
+          "先行詞 the day は「時」なので when。where は場所、why は理由、how は方法用。",
         hint: "時を表す関係副詞",
       },
       {
         id: 3,
+        sentence: "Do you know the way ___ she solved the problem?",
+        choices: [
+          { label: "A", text: "how" },
+          { label: "B", text: "the way how" },
+          { label: "C", text: "where" },
+          { label: "D", text: "when" },
+        ],
+        answerLabel: "A",
+        explanation:
+          "「方法」は how だが、the way と how は併用できない。the way があるので how 単独ではなく…という引っかけ。正しくは the way / how のどちらか一方。ここでは how を選ぶ（the way how は誤用）。",
+        hint: "方法を表す関係副詞（the way how は不可）",
+      },
+    ],
+    testQuestions: [
+      {
+        id: 1,
         sentence: "That is the reason ___ he left early.",
-        blank: "___",
-        answer: "why",
-        hint: "理由を表す関係副詞",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "when" },
+          { label: "C", text: "why" },
+          { label: "D", text: "which" },
+        ],
+        answerLabel: "C",
+        explanation: "先行詞 the reason は「理由」なので why。",
+      },
+      {
+        id: 2,
+        sentence: "The library ___ I study every day is very quiet.",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "when" },
+          { label: "C", text: "who" },
+          { label: "D", text: "why" },
+        ],
+        answerLabel: "A",
+        explanation: "先行詞 the library は「場所」なので where。",
+      },
+      {
+        id: 3,
+        sentence: "Summer is the season ___ I love most.",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "when" },
+          { label: "C", text: "which" },
+          { label: "D", text: "why" },
+        ],
+        answerLabel: "C",
+        explanation:
+          "the season を「目的語」として修飾しており、love の目的語が欠けているので関係代名詞 which。時の先行詞でも、節内で副詞ではなく目的語が欠ける場合は関係代名詞を使う点に注意。",
       },
       {
         id: 4,
-        sentence: "The library ___ I study every day is very quiet.",
-        blank: "___",
-        answer: "where",
-        hint: "場所を表す関係副詞",
+        sentence: "Tell me the day ___ you are free.",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "when" },
+          { label: "C", text: "why" },
+          { label: "D", text: "how" },
+        ],
+        answerLabel: "B",
+        explanation: "the day は「時」なので when。",
       },
       {
         id: 5,
-        sentence: "Do you know the way ___ she solved the problem?",
-        blank: "___",
-        answer: "how",
-        hint: "方法を表す関係副詞",
+        sentence: "This is the village ___ my grandfather lives.",
+        choices: [
+          { label: "A", text: "where" },
+          { label: "B", text: "which" },
+          { label: "C", text: "when" },
+          { label: "D", text: "who" },
+        ],
+        answerLabel: "A",
+        explanation: "the village は「場所」、節内で副詞（there）が欠けるので where。",
       },
       {
         id: 6,
-        sentence: "Summer is the season ___ I love most.",
-        blank: "___",
-        answer: "when",
-        hint: "時を表す関係副詞",
+        sentence: "I don't know the reason ___ she is angry.",
+        choices: [
+          { label: "A", text: "how" },
+          { label: "B", text: "when" },
+          { label: "C", text: "why" },
+          { label: "D", text: "where" },
+        ],
+        answerLabel: "C",
+        explanation: "the reason は「理由」なので why。",
       },
     ],
   },
@@ -88,48 +173,124 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         "目的格の関係代名詞には、ある特徴的なルールがある。それを教えると理解が深まる",
       ],
     },
-    questions: [
+    practiceQuestions: [
       {
         id: 1,
         sentence: "The man ___ lives next door is a doctor.",
-        blank: "___",
-        answer: "who",
-        hint: "人を先行詞とする主格の関係代名詞",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "whom" },
+          { label: "D", text: "where" },
+        ],
+        answerLabel: "A",
+        explanation:
+          "先行詞 the man は「人」で、節内で主語（lives の主語）なので主格 who。which は物用、whom は目的格。",
+        hint: "人を先行詞とする主格",
       },
       {
         id: 2,
         sentence: "The book ___ I read yesterday was interesting.",
-        blank: "___",
-        answer: "which",
-        hint: "物を先行詞とする目的格の関係代名詞",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "whose" },
+          { label: "D", text: "what" },
+        ],
+        answerLabel: "B",
+        explanation:
+          "先行詞 the book は「物」で read の目的語が欠けている（目的格）ので which。人なら whom/who。",
+        hint: "物を先行詞とする目的格",
       },
       {
         id: 3,
         sentence: "She is the only person ___ can help me.",
-        blank: "___",
-        answer: "who",
-        hint: "人を先行詞とする主格の関係代名詞",
+        choices: [
+          { label: "A", text: "which" },
+          { label: "B", text: "what" },
+          { label: "C", text: "that" },
+          { label: "D", text: "whose" },
+        ],
+        answerLabel: "C",
+        explanation:
+          "the only person のように only が付くと that が好まれる。who も可だが選択肢では that。which は物用、what は先行詞を含むため不可。",
+        hint: "only が付く先行詞は that が好まれる",
+      },
+    ],
+    testQuestions: [
+      {
+        id: 1,
+        sentence: "This is the house ___ I grew up in.",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "when" },
+          { label: "D", text: "whose" },
+        ],
+        answerLabel: "B",
+        explanation: "the house は物で in の目的語が欠ける（目的格）ので which。",
+      },
+      {
+        id: 2,
+        sentence: "The students ___ passed the exam were happy.",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "whom" },
+          { label: "D", text: "what" },
+        ],
+        answerLabel: "A",
+        explanation: "the students は人で passed の主語（主格）なので who。",
+      },
+      {
+        id: 3,
+        sentence: "The movie ___ we watched last night was amazing.",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "whose" },
+          { label: "D", text: "where" },
+        ],
+        answerLabel: "B",
+        explanation: "the movie は物で watched の目的語が欠ける（目的格）ので which。",
       },
       {
         id: 4,
-        sentence: "This is the house ___ I grew up in.",
-        blank: "___",
-        answer: "which",
-        hint: "物を先行詞とする目的格の関係代名詞",
+        sentence: "I know a girl ___ mother is a famous singer.",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "whose" },
+          { label: "D", text: "whom" },
+        ],
+        answerLabel: "C",
+        explanation:
+          "「その女の子の母親」と所有関係を表すので所有格 whose。",
       },
       {
         id: 5,
-        sentence: "The students ___ passed the exam were happy.",
-        blank: "___",
-        answer: "who",
-        hint: "人を先行詞とする主格の関係代名詞",
+        sentence: "The car ___ is parked outside is mine.",
+        choices: [
+          { label: "A", text: "who" },
+          { label: "B", text: "which" },
+          { label: "C", text: "whom" },
+          { label: "D", text: "what" },
+        ],
+        answerLabel: "B",
+        explanation: "the car は物で is parked の主語（主格）なので which。",
       },
       {
         id: 6,
-        sentence: "The movie ___ we watched last night was amazing.",
-        blank: "___",
-        answer: "which",
-        hint: "物を先行詞とする目的格の関係代名詞",
+        sentence: "He is a person ___ everyone respects.",
+        choices: [
+          { label: "A", text: "which" },
+          { label: "B", text: "whom" },
+          { label: "C", text: "whose" },
+          { label: "D", text: "what" },
+        ],
+        answerLabel: "B",
+        explanation:
+          "a person は人で respects の目的語が欠ける（目的格）ので whom。which は物用。",
       },
     ],
   },
@@ -157,48 +318,122 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         "動作を行った人や原因を文に含めたいとき、どのように表現するか？",
       ],
     },
-    questions: [
+    practiceQuestions: [
       {
         id: 1,
         sentence: "This letter ___ written by Tom yesterday.",
-        blank: "___",
-        answer: "was",
-        hint: "過去の受動態",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "was" },
+          { label: "C", text: "were" },
+          { label: "D", text: "be" },
+        ],
+        answerLabel: "B",
+        explanation:
+          "yesterday があり過去・主語は単数なので was。is は現在、were は複数主語、be は原形。",
+        hint: "過去・単数主語の受動態",
       },
       {
         id: 2,
         sentence: "English ___ spoken all over the world.",
-        blank: "___",
-        answer: "is",
-        hint: "現在の受動態",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "was" },
+          { label: "C", text: "are" },
+          { label: "D", text: "been" },
+        ],
+        answerLabel: "A",
+        explanation:
+          "一般的事実＝現在・主語 English は単数なので is。are は複数主語、been は完了形で使う。",
+        hint: "現在・単数主語の受動態",
       },
       {
         id: 3,
         sentence: "The cake has ___ eaten by the children.",
-        blank: "___",
-        answer: "been",
-        hint: "現在完了の受動態",
+        choices: [
+          { label: "A", text: "be" },
+          { label: "B", text: "was" },
+          { label: "C", text: "been" },
+          { label: "D", text: "being" },
+        ],
+        answerLabel: "C",
+        explanation:
+          "現在完了の受動態 has been + 過去分詞。has の後ろは been。was/being は不可。",
+        hint: "現在完了の受動態（has been + p.p.）",
+      },
+    ],
+    testQuestions: [
+      {
+        id: 1,
+        sentence: "The window ___ broken by the ball.",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "was" },
+          { label: "C", text: "were" },
+          { label: "D", text: "been" },
+        ],
+        answerLabel: "B",
+        explanation: "過去・単数主語なので was。",
+      },
+      {
+        id: 2,
+        sentence: "The new museum will ___ opened next year.",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "be" },
+          { label: "C", text: "was" },
+          { label: "D", text: "been" },
+        ],
+        answerLabel: "B",
+        explanation: "未来の受動態 will be + 過去分詞。助動詞 will の後ろは原形 be。",
+      },
+      {
+        id: 3,
+        sentence: "These shoes ___ made in Italy.",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "was" },
+          { label: "C", text: "were" },
+          { label: "D", text: "be" },
+        ],
+        answerLabel: "C",
+        explanation: "過去・複数主語 these shoes なので were。",
       },
       {
         id: 4,
-        sentence: "The window ___ broken by the ball.",
-        blank: "___",
-        answer: "was",
-        hint: "過去の受動態",
+        sentence: "Rice ___ grown in many Asian countries.",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "are" },
+          { label: "C", text: "were" },
+          { label: "D", text: "been" },
+        ],
+        answerLabel: "A",
+        explanation: "現在・単数主語 rice（不可算）なので is。",
       },
       {
         id: 5,
-        sentence: "The new museum will ___ opened next year.",
-        blank: "___",
-        answer: "be",
-        hint: "未来の受動態",
+        sentence: "The report has ___ finished already.",
+        choices: [
+          { label: "A", text: "be" },
+          { label: "B", text: "been" },
+          { label: "C", text: "was" },
+          { label: "D", text: "being" },
+        ],
+        answerLabel: "B",
+        explanation: "現在完了の受動態 has been + 過去分詞。",
       },
       {
         id: 6,
-        sentence: "These shoes ___ made in Italy.",
-        blank: "___",
-        answer: "were",
-        hint: "過去の受動態（複数主語）",
+        sentence: "The bridge ___ built two years ago.",
+        choices: [
+          { label: "A", text: "is" },
+          { label: "B", text: "was" },
+          { label: "C", text: "were" },
+          { label: "D", text: "be" },
+        ],
+        answerLabel: "B",
+        explanation: "two years ago があり過去・単数主語なので was。",
       },
     ],
   },
@@ -225,48 +460,124 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
         "wish や as if の後に続く動詞の形は、仮定法のどのパターンと同じか？",
       ],
     },
-    questions: [
+    practiceQuestions: [
       {
         id: 1,
         sentence: "If I ___ a bird, I could fly.",
-        blank: "___",
-        answer: "were",
-        hint: "仮定法過去（be動詞は were を使う）",
+        choices: [
+          { label: "A", text: "am" },
+          { label: "B", text: "was" },
+          { label: "C", text: "were" },
+          { label: "D", text: "be" },
+        ],
+        answerLabel: "C",
+        explanation:
+          "仮定法過去では主語に関わらず be動詞は were を使う（I were）。was は口語では使われるが文法上は were が正式。",
+        hint: "仮定法過去の be動詞は were",
       },
       {
         id: 2,
         sentence: "If she had studied harder, she ___ have passed.",
-        blank: "___",
-        answer: "would",
-        hint: "仮定法過去完了",
+        choices: [
+          { label: "A", text: "will" },
+          { label: "B", text: "would" },
+          { label: "C", text: "can" },
+          { label: "D", text: "must" },
+        ],
+        answerLabel: "B",
+        explanation:
+          "仮定法過去完了：If + had + p.p., 主節は would/could/might have + p.p.。will は直説法用。",
+        hint: "仮定法過去完了の主節（would have + p.p.）",
       },
       {
         id: 3,
         sentence: "I wish I ___ taller.",
-        blank: "___",
-        answer: "were",
+        choices: [
+          { label: "A", text: "am" },
+          { label: "B", text: "was" },
+          { label: "C", text: "were" },
+          { label: "D", text: "will be" },
+        ],
+        answerLabel: "C",
+        explanation:
+          "wish + 仮定法過去。現在の事実に反する願望で be動詞は were。",
         hint: "wish + 仮定法過去",
+      },
+    ],
+    testQuestions: [
+      {
+        id: 1,
+        sentence: "If it ___ raining, we would go out.",
+        choices: [
+          { label: "A", text: "isn't" },
+          { label: "B", text: "wasn't" },
+          { label: "C", text: "weren't" },
+          { label: "D", text: "won't be" },
+        ],
+        answerLabel: "C",
+        explanation: "仮定法過去の否定。be動詞は主語に関わらず were → weren't。",
+      },
+      {
+        id: 2,
+        sentence: "He talks as if he ___ everything.",
+        choices: [
+          { label: "A", text: "know" },
+          { label: "B", text: "knows" },
+          { label: "C", text: "knew" },
+          { label: "D", text: "will know" },
+        ],
+        answerLabel: "C",
+        explanation: "as if + 仮定法過去。現在の事実に反するので過去形 knew。",
+      },
+      {
+        id: 3,
+        sentence: "If I ___ known the answer, I would have told you.",
+        choices: [
+          { label: "A", text: "have" },
+          { label: "B", text: "had" },
+          { label: "C", text: "has" },
+          { label: "D", text: "would" },
+        ],
+        answerLabel: "B",
+        explanation: "仮定法過去完了の if 節：If + had + p.p.。",
       },
       {
         id: 4,
-        sentence: "If it ___ raining, we would go out.",
-        blank: "___",
-        answer: "weren't",
-        hint: "仮定法過去（否定）",
+        sentence: "If I were you, I ___ accept the offer.",
+        choices: [
+          { label: "A", text: "will" },
+          { label: "B", text: "would" },
+          { label: "C", text: "am going to" },
+          { label: "D", text: "can" },
+        ],
+        answerLabel: "B",
+        explanation: "仮定法過去の主節は would + 動詞原形。",
       },
       {
         id: 5,
-        sentence: "He talks as if he ___ everything.",
-        blank: "___",
-        answer: "knew",
-        hint: "as if + 仮定法過去",
+        sentence: "I wish I ___ harder when I was young.",
+        choices: [
+          { label: "A", text: "studied" },
+          { label: "B", text: "had studied" },
+          { label: "C", text: "study" },
+          { label: "D", text: "have studied" },
+        ],
+        answerLabel: "B",
+        explanation:
+          "過去の事実に反する後悔の願望 wish + 仮定法過去完了 had + p.p.。",
       },
       {
         id: 6,
-        sentence: "If I ___ known the answer, I would have told you.",
-        blank: "___",
-        answer: "had",
-        hint: "仮定法過去完了（if節）",
+        sentence: "If he had left earlier, he ___ caught the train.",
+        choices: [
+          { label: "A", text: "would have" },
+          { label: "B", text: "would" },
+          { label: "C", text: "will have" },
+          { label: "D", text: "had" },
+        ],
+        answerLabel: "A",
+        explanation:
+          "仮定法過去完了の主節：would have + 過去分詞（caught）。",
       },
     ],
   },

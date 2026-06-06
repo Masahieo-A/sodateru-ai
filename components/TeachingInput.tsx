@@ -119,9 +119,9 @@ export function TeachingInput({
           <div>
             <p className="font-bold text-indigo-800">AIより</p>
             <p className="text-indigo-700 text-sm mt-1 leading-relaxed">
-              「{unit.name}」について何も知りません。先生（あなた）が説明してくれた内容だけを使って
-              {unit.questions.length}
-              問の穴埋め問題に挑戦します。わかりやすく教えてください！
+              「{unit.name}」について何も知りません。まずは基本を教えてください！
+              そのあと、先生（あなた）の説明だけを使って練習問題に挑戦し、分からないところを質問します。
+              一緒に学んでいきましょう。
             </p>
           </div>
         </div>

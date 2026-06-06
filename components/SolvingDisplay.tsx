@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TeachResult, GrammarUnit } from "@/types";
+import type { TestResult, GrammarUnit } from "@/types";
 
 type Props = {
-  result: TeachResult;
+  result: TestResult;
   unit: GrammarUnit;
   onDone: () => void;
 };
@@ -14,34 +14,21 @@ const THINK_DELAY = 1400;
 /** 答え表示から次の問題へ進むまでの時間 (ms) */
 const NEXT_DELAY = 700;
 
+/** テスト：AIが testQuestions を1問ずつ解いていくアニメーション */
 export function SolvingDisplay({ result, unit, onDone }: Props) {
   const total = result.answers.length;
 
-  /**
-   * currentQ: 現在「考え中」を見せている問題のインデックス
-   *   0〜total-1 → 処理中
-   *   total       → 全問終了
-   */
   const [currentQ, setCurrentQ] = useState(0);
-
-  /**
-   * answeredSet: 答えを表示済みの問題インデックスの集合
-   */
   const [answeredSet, setAnsweredSet] = useState<Set<number>>(new Set());
 
   const allDone = currentQ >= total;
 
-  // 1問ずつ順番に答えを公開していくタイマー制御
   useEffect(() => {
     if (currentQ >= total) return;
 
     let t2: ReturnType<typeof setTimeout>;
-
     const t1 = setTimeout(() => {
-      // 答え（思考過程）を公開
       setAnsweredSet((prev) => new Set([...prev, currentQ]));
-
-      // 次の問題へ
       t2 = setTimeout(() => {
         setCurrentQ((prev) => prev + 1);
       }, NEXT_DELAY);
@@ -63,12 +50,12 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
           <span className="text-3xl">{allDone ? "🎯" : "🤖"}</span>
           <div>
             <h2 className="font-bold text-indigo-800 text-base">
-              {allDone ? "AIが全問解き終わりました！" : "AIが問題を解いています..."}
+              {allDone ? "AIがテストを解き終わりました！" : "AIがテストを解いています..."}
             </h2>
             <p className="text-sm text-indigo-500 mt-0.5">
               {allDone
                 ? `正答数: ${correctCount} / ${total} 問`
-                : "あなたの説明だけを頼りに考えています"}
+                : "あなたが教えた内容だけを頼りに考えています"}
             </p>
           </div>
         </div>
@@ -88,12 +75,19 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
       {/* 問題リスト */}
       <div className="space-y-3">
         {result.answers.map((a, i) => {
-          const q = unit.questions[i];
-          const isVisible = i <= currentQ; // これ以下のインデックスは表示
+          const q = unit.testQuestions[i];
+          const isVisible = i <= currentQ;
           const hasAnswer = answeredSet.has(i);
-          const isCurrent = i === currentQ && !hasAnswer; // いま考え中
+          const isCurrent = i === currentQ && !hasAnswer;
 
           if (!isVisible) return null;
+
+          const correctText = q?.choices.find(
+            (c) => c.label === q.answerLabel
+          )?.text;
+          const chosenText = q?.choices.find(
+            (c) => c.label === a.chosenLabel
+          )?.text;
 
           return (
             <div
@@ -106,15 +100,12 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                   : "border-indigo-200"
               }`}
             >
-              {/* 問題番号 + 文 */}
               <p className="text-sm font-medium text-gray-800 mb-2 leading-relaxed">
-                <span className="text-indigo-600 font-bold mr-1">問{a.question_id}</span>
+                <span className="text-indigo-600 font-bold mr-1">問{i + 1}</span>
                 {q?.sentence}
               </p>
 
-              {/* 思考中 or 思考結果 */}
               {isCurrent ? (
-                /* 考え中インジケーター */
                 <div className="flex items-center gap-2 py-1">
                   <span className="text-indigo-400 animate-pulse text-base">💭</span>
                   <span className="text-indigo-400 text-sm font-medium animate-pulse">
@@ -127,14 +118,10 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                   </span>
                 </div>
               ) : hasAnswer ? (
-                /* 思考過程 + 答え */
                 <div className="space-y-2">
-                  {/* 思考過程 */}
                   <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2.5 leading-relaxed">
                     💭 {a.thinking}
                   </p>
-
-                  {/* 答えバッジ */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`text-xs px-2.5 py-1 rounded-full font-bold ${
@@ -143,13 +130,16 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                           : "bg-red-100 text-red-700"
                       }`}
                     >
-                      AIの答え：{a.answer}
+                      AIの答え：{a.chosenLabel}
+                      {chosenText ? `. ${chosenText}` : ""}
                     </span>
                     <span className="text-base">{a.is_correct ? "✅" : "❌"}</span>
-                    {!a.is_correct && q && (
+                    {!a.is_correct && correctText && (
                       <span className="text-xs text-gray-400">
                         正解：
-                        <span className="font-bold text-gray-600">{q.answer}</span>
+                        <span className="font-bold text-gray-600">
+                          {q.answerLabel}. {correctText}
+                        </span>
                       </span>
                     )}
                   </div>
@@ -160,7 +150,6 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
         })}
       </div>
 
-      {/* 全問終了後：結果へ進むボタン */}
       {allDone && (
         <button
           onClick={onDone}
@@ -168,7 +157,7 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
             hover:bg-indigo-700 active:scale-95 transition-all duration-200
             flex items-center justify-center gap-2 text-base shadow-md"
         >
-          📊 スコアと詳細フィードバックを見る →
+          📊 スコアと詳細を見る →
         </button>
       )}
     </div>
