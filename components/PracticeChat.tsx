@@ -42,6 +42,8 @@ export function PracticeChat({
   const convoRef = useRef<LessonMessage[]>(dialogue);
   // 初回ターンを一度だけ起動するためのガード
   const startedRef = useRef(false);
+  // この問題で先生が追加で教えた回数（安全弁：2回以上で必ず次へ進める）
+  const teacherRepliesRef = useRef(0);
 
   const runTurn = async (isFollowup: boolean) => {
     setLoading(true);
@@ -55,6 +57,7 @@ export function PracticeChat({
           question_id: question.id,
           dialogue: convoRef.current,
           is_followup: isFollowup,
+          exchange_count: teacherRepliesRef.current,
         }),
       });
       const data = await res.json();
@@ -74,7 +77,9 @@ export function PracticeChat({
           isCorrect: turn.isCorrect,
         },
       ]);
-      setSatisfied(!!turn.satisfied);
+      // 安全弁：2回以上教えたら、AIの応答に関わらず次へ進めるようにする
+      // （同じ質問の繰り返しで生徒が足止めされ、意欲を失うのを防ぐ）
+      setSatisfied(!!turn.satisfied || teacherRepliesRef.current >= 2);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -97,6 +102,7 @@ export function PracticeChat({
     const teacherMsg: LessonMessage = { role: "teacher", content: text };
     convoRef.current = [...convoRef.current, teacherMsg];
     onAppend(teacherMsg);
+    teacherRepliesRef.current += 1;
     setBubbles((b) => [...b, { kind: "teacher", content: text }]);
     setReply("");
     setSatisfied(false);
@@ -235,17 +241,17 @@ export function PracticeChat({
             className={`w-full py-3.5 px-6 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
               satisfied
                 ? "bg-green-500 text-white hover:bg-green-600 shadow-md"
-                : "bg-white border-2 border-gray-200 text-gray-500 hover:border-gray-300"
+                : "bg-indigo-50 border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-100"
             }`}
           >
             {satisfied ? "✅ " : ""}
             {isLast ? "学習内容を確認する →" : "次の練習問題へ →"}
           </button>
-          {satisfied && (
-            <p className="text-center text-xs text-green-600 font-medium">
-              AIはこの問題を十分に理解できたようです！
-            </p>
-          )}
+          <p className="text-center text-xs font-medium text-gray-400">
+            {satisfied
+              ? "AIはこの問題を十分に理解できたようです！"
+              : "いつでも次に進めます。納得いくまで教えてもOK。"}
+          </p>
         </div>
       )}
     </div>

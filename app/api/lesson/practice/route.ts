@@ -11,8 +11,9 @@ export async function POST(req: NextRequest) {
       question_id?: number;
       dialogue?: LessonMessage[];
       is_followup?: boolean;
+      exchange_count?: number;
     } = await req.json();
-    const { unit_id, question_id, dialogue, is_followup } = body;
+    const { unit_id, question_id, dialogue, is_followup, exchange_count } = body;
 
     if (!unit_id || question_id == null || !dialogue) {
       return NextResponse.json(
@@ -37,7 +38,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const turn = await practiceChat(unit, question, dialogue, !!is_followup);
+    const turn = await practiceChat(
+      unit,
+      question,
+      dialogue,
+      !!is_followup,
+      exchange_count ?? 0
+    );
     return NextResponse.json(turn);
   } catch (err) {
     console.error("[/api/lesson/practice]", err);
