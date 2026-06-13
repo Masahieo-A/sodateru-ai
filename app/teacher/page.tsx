@@ -28,7 +28,8 @@ export default function TeacherLoginPage() {
         throw new Error(data.error ?? "認証に失敗しました");
       }
 
-      localStorage.setItem("teacher_password", password);
+      // 認証成功時、サーバーが httpOnly Cookie を発行する。
+      // パスワードはクライアントに保存しない（XSS 窃取・DevTools 露出を防止）。
       router.push("/teacher/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");

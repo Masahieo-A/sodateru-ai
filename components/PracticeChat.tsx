@@ -26,6 +26,8 @@ type Props = {
   forceStumble?: boolean;
   /** 初回回答の正誤を親へ通知（全問正解判定の集計に使う） */
   onFirstAnswer?: (isCorrect: boolean) => void;
+  /** “あえて間違える”演出が実際に発動したことを親へ通知（事後開示に使う） */
+  onStumble?: () => void;
 };
 
 export function PracticeChat({
@@ -39,6 +41,7 @@ export function PracticeChat({
   isLast,
   forceStumble = false,
   onFirstAnswer,
+  onStumble,
 }: Props) {
   // この問題で表示する吹き出し（この問題開始以降のやりとり）
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -90,6 +93,8 @@ export function PracticeChat({
       ]);
       // 初回回答の正誤を親に通知（全問正解しそうかの集計に使う）
       if (!isFollowup) onFirstAnswer?.(!!turn.isCorrect);
+      // “あえて間違える”演出が発動した初回ターンを親へ通知（事後開示用）
+      if (!isFollowup && forceStumble) onStumble?.();
       // 安全弁：2回以上教えたら、AIの応答に関わらず次へ進めるようにする
       // （同じ質問の繰り返しで生徒が足止めされ、意欲を失うのを防ぐ）
       setSatisfied(!!turn.satisfied || teacherRepliesRef.current >= 2);

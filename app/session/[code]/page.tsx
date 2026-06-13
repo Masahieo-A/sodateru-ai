@@ -121,6 +121,8 @@ export default function SessionPage({
   const [practiceIndex, setPracticeIndex] = useState(0);
   // 練習問題の「初回回答」で間違えた数（メタ認知のための“あえて間違え”判定に使う）
   const [initialWrongCount, setInitialWrongCount] = useState(0);
+  // “あえて間違える”演出が実際に発動したか（結果画面で事後開示するために保持）
+  const [didForceStumble, setDidForceStumble] = useState(false);
   const [testResult, setTestResult] = useState<TR | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -245,6 +247,7 @@ export default function SessionPage({
     setDialogue([{ role: "teacher", content: text }]);
     setPracticeIndex(0);
     setInitialWrongCount(0);
+    setDidForceStumble(false);
     setError(null);
     setLessonStep("practice");
   };
@@ -295,6 +298,7 @@ export default function SessionPage({
     setDialogue([]);
     setPracticeIndex(0);
     setInitialWrongCount(0);
+    setDidForceStumble(false);
     setTestResult(null);
     setError(null);
     setLessonStep("explain");
@@ -473,6 +477,7 @@ export default function SessionPage({
                 onNext={handlePracticeNext}
                 isLast={practiceIndex === unit.practiceQuestions.length - 1}
                 onFirstAnswer={handleFirstAnswer}
+                onStumble={() => setDidForceStumble(true)}
                 // このままだと全問正解（初回ミス0）かつ最後の問題なら、
                 // メタ認知のため“あえて1問間違える”
                 forceStumble={
@@ -494,6 +499,7 @@ export default function SessionPage({
             <LearningSummary
               unit={unit}
               dialogue={dialogue}
+              studentId={studentId}
               onStartTest={handleStartTest}
               onBack={() => setLessonStep("practice")}
             />
@@ -521,7 +527,12 @@ export default function SessionPage({
           {/* 結果 */}
           {lessonStep === "result" && testResult && (
             <>
-              <TestResult result={testResult} unit={unit} onRetry={handleRetry} />
+              <TestResult
+                result={testResult}
+                unit={unit}
+                onRetry={handleRetry}
+                forceStumbleUsed={didForceStumble}
+              />
               {studentId && (
                 <RankingList students={students} currentStudentId={studentId} />
               )}

@@ -7,6 +7,8 @@ type Props = {
   result: TR;
   unit: GrammarUnit;
   onRetry: () => void;
+  /** 練習中に“あえて1問間違える”演出が発動した場合 true（事後開示する） */
+  forceStumbleUsed?: boolean;
 };
 
 function ScoreRing({ score, label }: { score: number; label: string }) {
@@ -25,7 +27,12 @@ function ScoreRing({ score, label }: { score: number; label: string }) {
   );
 }
 
-export function TestResult({ result, unit, onRetry }: Props) {
+export function TestResult({
+  result,
+  unit,
+  onRetry,
+  forceStumbleUsed = false,
+}: Props) {
   const accuracy = Math.round(
     (result.ai_correct_count / result.total_questions) * 100
   );
@@ -76,6 +83,81 @@ export function TestResult({ result, unit, onRetry }: Props) {
           </div>
         </div>
       </div>
+
+      {/* “あえて間違える”演出の事後開示 */}
+      {forceStumbleUsed && (
+        <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">🎭</span>
+            <div>
+              <h3 className="font-bold text-amber-800 mb-1">ネタばらし</h3>
+              <p className="text-amber-700 text-sm leading-relaxed">
+                実は最後の練習問題で、AIはあなたの理解を深めるために
+                <strong>わざと間違えました</strong>
+                。あなたの説明がとても分かりやすく、全問正解しそうだったからこその仕掛けです。
+                「なぜ間違えたのか」を考え、AIに訂正してあげる経験が、
+                あなた自身の理解をさらに強くします。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 学習診断（次の改善ポイント） */}
+      {result.learningDiagnosis &&
+        (result.learningDiagnosis.strongPoints.length > 0 ||
+          result.learningDiagnosis.weakPoints.length > 0 ||
+          result.learningDiagnosis.suggestion) && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="font-bold text-gray-800 mb-4">🩺 学習診断</h3>
+            <div className="space-y-4">
+              {result.learningDiagnosis.strongPoints.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-green-700 mb-1.5">
+                    ✅ うまく教えられた点
+                  </p>
+                  <ul className="space-y-1">
+                    {result.learningDiagnosis.strongPoints.map((p, i) => (
+                      <li
+                        key={i}
+                        className="text-sm text-gray-700 bg-green-50 rounded-lg px-3 py-1.5"
+                      >
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.learningDiagnosis.weakPoints.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-orange-700 mb-1.5">
+                    ⚠️ もう一歩だった点
+                  </p>
+                  <ul className="space-y-1">
+                    {result.learningDiagnosis.weakPoints.map((p, i) => (
+                      <li
+                        key={i}
+                        className="text-sm text-gray-700 bg-orange-50 rounded-lg px-3 py-1.5"
+                      >
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.learningDiagnosis.suggestion && (
+                <div className="bg-indigo-50 rounded-xl p-3">
+                  <p className="text-xs font-bold text-indigo-700 mb-1">
+                    💡 次に試すといいこと
+                  </p>
+                  <p className="text-sm text-indigo-800 leading-relaxed">
+                    {result.learningDiagnosis.suggestion}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* 問題ごとの回答と思考過程 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

@@ -22,8 +22,14 @@ CREATE TABLE IF NOT EXISTS students (
   best_score      INTEGER NOT NULL DEFAULT 0,     -- 最高スコア
   attempt_count   INTEGER NOT NULL DEFAULT 0,     -- 試行回数
   last_attempt_at TIMESTAMPTZ,
+  dialogue_log    JSONB,                          -- 練習で教えた対話ログ（サーバーが正とする）
+  teaching_summary TEXT,                          -- 教えた内容のサマリー（テスト時のトークン削減用）
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 既存DBのアップグレード用（冪等）
+ALTER TABLE students ADD COLUMN IF NOT EXISTS dialogue_log JSONB;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS teaching_summary TEXT;
 
 -- attempts: 各試行の記録
 CREATE TABLE IF NOT EXISTS attempts (

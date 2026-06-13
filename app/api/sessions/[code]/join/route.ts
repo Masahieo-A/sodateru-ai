@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const { name } = await req.json();
+  const { name, student_id } = await req.json();
   if (!name?.trim()) {
     return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
   }
@@ -23,6 +23,21 @@ export async function POST(
   }
   if (session.status === "ended") {
     return NextResponse.json({ error: "このセッションはすでに終了しています" }, { status: 400 });
+  }
+
+  // 同一端末（localStorage の student_id）がすでにこのセッションに参加済みなら、
+  // 名前を変えての再参加でも既存レコードを再利用する（別名で複数回参加し、
+  // ランキングにスコアを積み増す不正を防止する）。
+  if (student_id) {
+    const { data: byId } = await supabaseAdmin
+      .from("students")
+      .select("*")
+      .eq("id", student_id)
+      .eq("session_id", session.id)
+      .single();
+    if (byId) {
+      return NextResponse.json({ student: byId, session });
+    }
   }
 
   // 同名の生徒が既に存在する場合は再利用（リロード対応）

@@ -30,7 +30,7 @@ export default function SessionManagePage({
   const { id } = use(params);
   const router = useRouter();
 
-  const [password, setPassword] = useState<string | null>(null);
+  const [authed, setAuthed] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,14 +38,18 @@ export default function SessionManagePage({
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // 認証チェック
+  // 認証チェック（httpOnly Cookie の有効性をサーバーに問い合わせる）
   useEffect(() => {
-    const pw = localStorage.getItem("teacher_password");
-    if (!pw) {
-      router.replace("/teacher");
-      return;
-    }
-    setPassword(pw);
+    fetch("/api/teacher")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authenticated) {
+          setAuthed(true);
+        } else {
+          router.replace("/teacher");
+        }
+      })
+      .catch(() => router.replace("/teacher"));
   }, [router]);
 
   // セッション取得
@@ -112,14 +116,17 @@ export default function SessionManagePage({
   }, [session]);
 
   const handleStart = async () => {
-    if (!session || !password) return;
+    if (!session) return;
     setIsActioning(true);
     setActionError(null);
     try {
       const res = await fetch(`/api/sessions/${session.code}/start`, {
         method: "POST",
-        headers: { "x-teacher-password": password },
       });
+      if (res.status === 401) {
+        router.replace("/teacher");
+        return;
+      }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "開始に失敗しました");
@@ -134,14 +141,17 @@ export default function SessionManagePage({
   };
 
   const handleEnd = async () => {
-    if (!session || !password) return;
+    if (!session) return;
     setIsActioning(true);
     setActionError(null);
     try {
       const res = await fetch(`/api/sessions/${session.code}/end`, {
         method: "POST",
-        headers: { "x-teacher-password": password },
       });
+      if (res.status === 401) {
+        router.replace("/teacher");
+        return;
+      }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "終了に失敗しました");
@@ -158,7 +168,7 @@ export default function SessionManagePage({
   const unitName = (id: string) =>
     GRAMMAR_UNITS.find((u) => u.id === id)?.name ?? id;
 
-  if (!password) return null;
+  if (!authed) return null;
 
   if (isLoading) {
     return (

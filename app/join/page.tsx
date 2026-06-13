@@ -32,10 +32,17 @@ export default function JoinPage() {
 
     setIsLoading(true);
     try {
+      // 同一端末での別名再参加によるランキング操作を防ぐため、
+      // 既存の student_id があればサーバーへ渡して重複参加を判定させる。
+      const existingStudentId = localStorage.getItem("student_id");
+
       const res = await fetch(`/api/sessions/${code}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          student_id: existingStudentId ?? undefined,
+        }),
       });
 
       const data = await res.json();

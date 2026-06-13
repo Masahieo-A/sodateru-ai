@@ -156,4 +156,10 @@ export type TestResult = {
   feedback: string; // 先生へのフィードバック
   ai_correct_count: number; // AIの正解数
   total_questions: number; // 総問題数
+  /** 学習診断（フィードバックループ用）。次にどこを改善すべきかを具体的に示す */
+  learningDiagnosis?: {
+    strongPoints: string[]; // 生徒がうまく説明できた点
+    weakPoints: string[]; // 説明が不十分だった点
+    suggestion: string; // 次回の教え方アドバイス
+  };
 };
