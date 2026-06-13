@@ -107,13 +107,28 @@ ${
 - 特に引っかかりがなく自信があるなら satisfied は true。`;
   }
 
+  const assumed = unit.teachingGuide.assumedKnowledge;
+  const coverage = unit.teachingGuide.coverageTopics;
+
   const prompt = `
-あなたは「${unit.name}」を自分では知らない、素直で前向きな生徒AIです。
-先生（ユーザー）が教えてくれた内容【だけ】を使って、4択問題に取り組みます。
+あなたは英語を学んでいる、素直で前向きな生徒AIです。「確信度モデル」に従って振る舞ってください。
+知識を「知らないふり」で隠すのではなく、教わった内容には確信を持ち、教わっていない内容には正直に不確かさを表現します。
+
+【あなたが最初から知っていること（前提知識）】
+${assumed.length ? assumed.map((k) => `- ${k}`).join("\n") : "- （特になし）"}
+→ これらは説明されなくても当然のものとして使ってかまいません。
+
+【今回「${unit.name}」で学ぶ対象（最初はまだ教わっていない）】
+${coverage.map((t) => `- ${t}`).join("\n")}
+→ これらは先生に教えてもらって【はじめて】理解します。教わる前は「まだ習っていないので自信がない」として扱ってください。
+
+【その他の文法知識】
+→ 「なんとなく聞いたことはあるが、よくわからない」として、確信なく扱ってください。
+  二択に迫られて確信がないときは、当てずっぽうを正解のように語らず「〜だと思うのですが、合っていますか？」と正直に不確かさを示します。
 
 【共通ルール】
-- 教わっていない文法知識は使わない（知っていても「まだ教わっていない」と振る舞う）。
-- 先生が一度教えてくれたことは「学んだこと」として素直に受け入れ、同じ質問を繰り返さない。
+- 上の学習対象について、先生が一度教えてくれたことは「学んだこと」として素直に受け入れ、同じ質問を繰り返さない。
+- 前提知識や教わった内容を超える推測で“賢く”答えすぎない。あくまで「教わった範囲＋前提知識」で考える。
 - 口調はフレンドリーで前向き。日本語で2〜3文、簡潔に。
 
 ${phase}
@@ -226,9 +241,16 @@ ${formatDialogue(dialogue)}
 // ============================================================
 export async function runTest(
   unit: GrammarUnit,
-  dialogue: LessonMessage[]
+  // teachingSummary があればそれを知識源に使う（トークン削減）。
+  // なければ対話全文 dialogue にフォールバックする。
+  source: { dialogue?: LessonMessage[]; teachingSummary?: string }
 ): Promise<TestResult> {
   const model = getModel(1500);
+
+  // 教わった内容（テストでAIが使える唯一の知識）
+  const knowledgeText = source.teachingSummary?.trim()
+    ? source.teachingSummary.trim()
+    : formatDialogue(source.dialogue ?? []);
 
   const questionsText = unit.testQuestions
     .map(
@@ -239,29 +261,40 @@ export async function runTest(
 
   const prompt = `
 あなたは「${unit.name}」について、先生（ユーザー）から教わった内容【だけ】を知識として持つ生徒AIです。
-今からテスト（4択問題）を受けます。教わっていない知識は使わず、教わった内容だけを根拠に解いてください。
+今からテスト（4択問題）を受けます。
+
+【最重要・採点の前提となるルール】
+- このテストは「あなたの賢さ」ではなく「先生の教え方の質」を測るものです。
+- ですから、対話で実際に教わった内容【のみ】を根拠に解いてください。対話に登場していない文法知識・一般常識・あなたが本来持っている知識は【使ってはいけません】。
+- 教わっていない、または教わった内容だけでは判断できない問題は、無理に正解を当てにいかず、当てずっぽうで選んでください（その旨を thinking に正直に書く）。「先生がそこを教えていなかった」という事実が、教え方スコアに反映されるべきだからです。
+- 教わった説明が間違っていた場合は、その間違った説明に素直に従って解いてください（勝手に正しい知識で補正しない）。
 
 【先生から教わった内容（これだけが使える知識）】
-${formatDialogue(dialogue)}
+${knowledgeText}
 
 【テスト問題】
 ${questionsText}
 
 各問について、教わった内容のどの部分を使って考えたか（思考過程）を日本語で**1文・簡潔に**示し、選択肢を1つ選んでください。
-教わっていなくて解けない場合は、その旨を thinking に短く書き、最も妥当だと思うものを選んでください。
 
 以下のJSON形式【のみ】で回答してください：
 {
   "answers": [
-    { "question_id": 1, "chosenLabel": "A", "thinking": "（思考過程。日本語）" }
+    { "question_id": 1, "chosenLabel": "A", "thinking": "（思考過程。日本語。教わっていない場合は『この点は教わっていないので推測』などと正直に）" }
   ],
   "teaching_score": 75,
   "score_breakdown": { "accuracy": 80, "clarity": 70, "completeness": 75 },
-  "feedback": "（先生への総合フィードバック：良かった点と改善点を具体的に日本語で）"
+  "feedback": "（先生への総合フィードバック：良かった点と改善点を具体的に日本語で）",
+  "learningDiagnosis": {
+    "strongPoints": ["先生がうまく説明できていて、おかげで理解できた点を具体的に（最大3つ）"],
+    "weakPoints": ["説明が不足・あいまいで、解くのに困った点を具体的に（最大3つ。なければ空配列）"],
+    "suggestion": "次に教えるときに、どこをどう補強すればスコアが上がるかの具体的アドバイス（日本語1〜2文）"
+  }
 }
 
 teaching_score は 0〜100 の整数で、先生の「教え方」の質（正確性・わかりやすさ・網羅性）を総合評価してください。
 score_breakdown の各項目も 0〜100 の整数です。
+learningDiagnosis は、生徒（先生役のユーザー）が「次に何を改善すべきか」を理解できるよう、抽象論ではなく対話の具体的な内容に即して書いてください。
 ※ 各問の正誤判定（is_correct）はこちらで行うので、answers には含めなくて構いません。
 `;
 
@@ -275,6 +308,11 @@ score_breakdown の各項目も 0〜100 の整数です。
       completeness: number;
     };
     feedback: string;
+    learningDiagnosis?: {
+      strongPoints?: string[];
+      weakPoints?: string[];
+      suggestion?: string;
+    };
   }>(result.response.text());
 
   // 正誤はサーバ側で確定
@@ -292,6 +330,14 @@ score_breakdown の各項目も 0〜100 の整数です。
 
   const ai_correct_count = answers.filter((a) => a.is_correct).length;
 
+  const learningDiagnosis = raw.learningDiagnosis
+    ? {
+        strongPoints: raw.learningDiagnosis.strongPoints ?? [],
+        weakPoints: raw.learningDiagnosis.weakPoints ?? [],
+        suggestion: raw.learningDiagnosis.suggestion ?? "",
+      }
+    : undefined;
+
   return {
     answers,
     teaching_score: raw.teaching_score,
@@ -299,5 +345,6 @@ score_breakdown の各項目も 0〜100 の整数です。
     feedback: raw.feedback,
     ai_correct_count,
     total_questions: unit.testQuestions.length,
+    learningDiagnosis,
   };
 }

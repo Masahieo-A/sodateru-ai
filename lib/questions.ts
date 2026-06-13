@@ -108,16 +108,16 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
       },
       {
         id: 3,
-        sentence: "Summer is the season ___ I love most.",
+        sentence: "This is the restaurant ___ we had dinner last night.",
         choices: [
           { label: "A", text: "where" },
           { label: "B", text: "when" },
           { label: "C", text: "which" },
           { label: "D", text: "why" },
         ],
-        answerLabel: "C",
+        answerLabel: "A",
         explanation:
-          "the season を「目的語」として修飾しており、love の目的語が欠けているので関係代名詞 which。時の先行詞でも、節内で副詞ではなく目的語が欠ける場合は関係代名詞を使う点に注意。",
+          "先行詞 the restaurant は「場所」で、節内で副詞（there＝そこで）が欠けるので関係副詞 where。had dinner は自動詞的に完結しており目的語は欠けていないため、関係代名詞 which は不可。",
       },
       {
         id: 4,
@@ -416,15 +416,16 @@ export const GRAMMAR_UNITS: GrammarUnit[] = [
       },
       {
         id: 4,
-        sentence: "Rice ___ grown in many Asian countries.",
+        sentence: "These letters ___ written by Shakespeare.",
         choices: [
           { label: "A", text: "is" },
-          { label: "B", text: "are" },
-          { label: "C", text: "were" },
+          { label: "B", text: "were" },
+          { label: "C", text: "was" },
           { label: "D", text: "been" },
         ],
-        answerLabel: "A",
-        explanation: "現在・単数主語 rice（不可算）なので is。",
+        answerLabel: "B",
+        explanation:
+          "主語 these letters は複数で、by Shakespeare（故人）から過去の出来事なので be動詞は were。is は現在・単数、was は過去だが単数主語用、been は完了形で使う。受動態は主語の数と時制に be動詞を一致させる点がポイント。",
       },
       {
         id: 5,

@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
     } = await req.json();
     const { unit_id, dialogue, student_id, session_id } = body;
 
-    if (!unit_id || !dialogue) {
+    if (!unit_id) {
       return NextResponse.json(
-        { error: "unit_id / dialogue は必須です" },
+        { error: "unit_id は必須です" },
         { status: 400 }
       );
     }
@@ -30,14 +30,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await runTest(unit, dialogue);
+    // 授業モードでは、クライアントから送られた dialogue は信用せず、
+    // サマリー生成時にサーバー保存した内容を「正」として使う（改ざん防止）。
+    // teaching_summary があればそれを優先（トークン削減）、なければ保存済み対話を使う。
+    let teachingSummary: string | undefined;
+    let dbDialogue: LessonMessage[] | undefined;
+    if (student_id) {
+      const { data: stu } = await supabaseAdmin
+        .from("students")
+        .select("dialogue_log, teaching_summary")
+        .eq("id", student_id)
+        .single();
+      if (stu) {
+        teachingSummary = stu.teaching_summary ?? undefined;
+        dbDialogue = (stu.dialogue_log as LessonMessage[] | null) ?? undefined;
+      }
+    }
+
+    // 知識源：DB のサマリー > DB の対話 > クライアントの対話（standaloneモード用）
+    const sourceDialogue = dbDialogue ?? dialogue;
+    if (!teachingSummary && (!sourceDialogue || sourceDialogue.length === 0)) {
+      return NextResponse.json(
+        { error: "テストに使える学習内容がありません" },
+        { status: 400 }
+      );
+    }
+
+    const result = await runTest(unit, {
+      dialogue: sourceDialogue,
+      teachingSummary,
+    });
 
     // 授業モード: DB に保存してスコアを更新
     if (student_id && session_id) {
-      // dialogue（教えた全内容）をテキスト化して保存
-      const explanationText = dialogue
-        .map((m) => `[${m.role === "teacher" ? "先生" : "AI"}] ${m.content}`)
-        .join("\n");
+      // 教えた全内容（DB優先）をテキスト化して保存。
+      // 対話が無くサマリーのみの場合はサマリーを記録（explanation は NOT NULL）。
+      const explanationText =
+        (sourceDialogue ?? [])
+          .map((m) => `[${m.role === "teacher" ? "先生" : "AI"}] ${m.content}`)
+          .join("\n") ||
+        teachingSummary ||
+        "（記録なし）";
 
       await supabaseAdmin.from("attempts").insert({
         student_id,

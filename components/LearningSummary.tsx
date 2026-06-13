@@ -6,6 +6,8 @@ import type { GrammarUnit, LessonMessage, LearningSummary as LS } from "@/types"
 type Props = {
   unit: GrammarUnit;
   dialogue: LessonMessage[];
+  /** 授業モードの生徒ID。渡すと対話ログ・サマリーをサーバー保存する */
+  studentId?: string | null;
   /** 「テストを受けてもらう」 */
   onStartTest: () => void;
   /** 練習に戻る */
@@ -16,7 +18,13 @@ type Props = {
  * 「生徒の学習内容を把握する」画面。
  * AIが何を教わり、何を理解したかをまとめて表示する。
  */
-export function LearningSummary({ unit, dialogue, onStartTest, onBack }: Props) {
+export function LearningSummary({
+  unit,
+  dialogue,
+  studentId,
+  onStartTest,
+  onBack,
+}: Props) {
   const [summary, setSummary] = useState<LS | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +38,11 @@ export function LearningSummary({ unit, dialogue, onStartTest, onBack }: Props) 
         const res = await fetch("/api/lesson/summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ unit_id: unit.id, dialogue }),
+          body: JSON.stringify({
+            unit_id: unit.id,
+            dialogue,
+            student_id: studentId ?? undefined,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "まとめの取得に失敗しました");

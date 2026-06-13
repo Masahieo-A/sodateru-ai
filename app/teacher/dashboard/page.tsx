@@ -21,7 +21,7 @@ function StatusBadge({ status }: { status: SessionStatus }) {
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
-  const [password, setPassword] = useState<string | null>(null);
+  const [authed, setAuthed] = useState(false);
 
   // フォーム
   const [sessionName, setSessionName] = useState("");
@@ -34,24 +34,33 @@ export default function TeacherDashboardPage() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  // 認証チェック
+  // 認証チェック（httpOnly Cookie の有効性をサーバーに問い合わせる）。
+  // 認証が確認できたら、そのまま続けてセッション一覧を取得する。
   useEffect(() => {
-    const pw = localStorage.getItem("teacher_password");
-    if (!pw) {
-      router.replace("/teacher");
-      return;
-    }
-    setPassword(pw);
+    fetch("/api/teacher")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authenticated) {
+          setAuthed(true);
+          fetchSessions();
+        } else {
+          router.replace("/teacher");
+        }
+      })
+      .catch(() => router.replace("/teacher"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // セッション一覧取得
-  const fetchSessions = async (pw: string) => {
+  // セッション一覧取得（認証は Cookie で自動送信される）
+  const fetchSessions = async () => {
     setIsLoadingSessions(true);
     setListError(null);
     try {
-      const res = await fetch("/api/sessions", {
-        headers: { "x-teacher-password": pw },
-      });
+      const res = await fetch("/api/sessions");
+      if (res.status === 401) {
+        router.replace("/teacher");
+        return;
+      }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "取得に失敗しました");
@@ -65,14 +74,9 @@ export default function TeacherDashboardPage() {
     }
   };
 
-  useEffect(() => {
-    if (password) fetchSessions(password);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [password]);
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password || !sessionName.trim()) return;
+    if (!sessionName.trim()) return;
 
     setIsCreating(true);
     setCreateError(null);
@@ -80,12 +84,13 @@ export default function TeacherDashboardPage() {
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-teacher-password": password,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ unit_id: unitId, name: sessionName.trim() }),
       });
+      if (res.status === 401) {
+        router.replace("/teacher");
+        return;
+      }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "作成に失敗しました");
@@ -100,12 +105,12 @@ export default function TeacherDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("teacher_password");
+  const handleLogout = async () => {
+    await fetch("/api/teacher", { method: "DELETE" }).catch(() => {});
     router.push("/teacher");
   };
 
-  if (!password) return null;
+  if (!authed) return null;
 
   const unitName = (id: string) =>
     GRAMMAR_UNITS.find((u) => u.id === id)?.name ?? id;
@@ -190,7 +195,7 @@ export default function TeacherDashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-gray-800">セッション一覧</h2>
             <button
-              onClick={() => fetchSessions(password)}
+              onClick={() => fetchSessions()}
               disabled={isLoadingSessions}
               className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition disabled:opacity-50"
             >
