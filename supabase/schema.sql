@@ -45,16 +45,28 @@ CREATE TABLE IF NOT EXISTS attempts (
 );
 
 -- ============================================================
+-- ai_responses: AI応答の冪等化キャッシュ
+-- クライアントが付ける attemptId をキーに成功レスポンスを保存し、
+-- 再試行ボタンの連打・「戻る」操作での二重生成を防ぐ
+CREATE TABLE IF NOT EXISTS ai_responses (
+  attempt_id  TEXT PRIMARY KEY,
+  response    JSONB NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- Row Level Security（RLS）
 -- API ルート経由でのみアクセスするため、全許可ポリシーを設定
 -- ============================================================
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_responses ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all on sessions" ON sessions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on students" ON students FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on attempts" ON attempts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on ai_responses" ON ai_responses FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
 -- Realtime（リアルタイムランキング用）

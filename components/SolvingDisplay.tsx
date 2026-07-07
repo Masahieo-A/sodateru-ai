@@ -134,6 +134,11 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                       {chosenText ? `. ${chosenText}` : ""}
                     </span>
                     <span className="text-base">{a.is_correct ? "✅" : "❌"}</span>
+                    {a.taught === false && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-gray-200 text-gray-600">
+                        🔒 未習のため推測
+                      </span>
+                    )}
                     {!a.is_correct && correctText && (
                       <span className="text-xs text-gray-400">
                         正解：

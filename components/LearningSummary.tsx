@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ErrorRetry } from "@/components/ErrorRetry";
 import type { GrammarUnit, LessonMessage, LearningSummary as LS } from "@/types";
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
   onStartTest: () => void;
   /** 練習に戻る */
   onBack: () => void;
+  /** 冪等化キーの接頭辞（レッスン実行ごとに一意） */
+  attemptScope?: string;
 };
 
 /**
@@ -24,41 +27,51 @@ export function LearningSummary({
   studentId,
   onStartTest,
   onBack,
+  attemptScope,
 }: Props) {
   const [summary, setSummary] = useState<LS | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/lesson/summary", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            unit_id: unit.id,
-            dialogue,
-            student_id: studentId ?? undefined,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "まとめの取得に失敗しました");
-        if (!cancelled) setSummary(data as LS);
-      } catch (err) {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : "エラーが発生しました");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  // 冪等化キー：対話内容が同じなら同じキーになり、再試行・再訪問で二重生成しない
+  const attemptIdRef = useRef<string>(
+    attemptScope ? `${attemptScope}:summary:d${dialogue.length}` : crypto.randomUUID()
+  );
+  const cancelledRef = useRef(false);
+
+  // 注意: マウント時の effect から呼ぶため、await より前に setState しない
+  // （初期 state が loading=true / error=null なので初回はそのままでよい）
+  const fetchSummary = useCallback(async () => {
+    try {
+      const res = await fetch("/api/lesson/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          unit_id: unit.id,
+          dialogue,
+          student_id: studentId ?? undefined,
+          attempt_id: attemptIdRef.current,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "まとめの取得に失敗しました");
+      if (!cancelledRef.current) setSummary(data as LS);
+    } catch (err) {
+      if (!cancelledRef.current)
+        setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      if (!cancelledRef.current) setLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    fetchSummary();
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [fetchSummary]);
 
   if (loading) {
     return (
@@ -74,9 +87,15 @@ export function LearningSummary({
   if (error || !summary) {
     return (
       <div className="space-y-4">
-        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-sm text-red-700">
-          ⚠️ {error ?? "まとめを取得できませんでした"}
-        </div>
+        <ErrorRetry
+          message={error ?? "まとめを取得できませんでした"}
+          onRetry={() => {
+            setLoading(true);
+            setError(null);
+            fetchSummary();
+          }}
+          note="再試行しても、教えた内容は消えません。"
+        />
         <button
           onClick={onBack}
           className="w-full py-3 px-6 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"

@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { saveParticipant } from "@/lib/participant";
 
-export default function JoinPage() {
+function JoinForm() {
   const router = useRouter();
-  const [code, setCode] = useState("");
+  const searchParams = useSearchParams();
+  // 「別の名前で参加し直す」等の導線から ?code=XXXXXX で戻ってきたときにコードを事前入力
+  const [code, setCode] = useState(() =>
+    (searchParams.get("code") ?? "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 6)
+  );
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,17 +41,12 @@ export default function JoinPage() {
 
     setIsLoading(true);
     try {
-      // 同一端末での別名再参加によるランキング操作を防ぐため、
-      // 既存の student_id があればサーバーへ渡して重複参加を判定させる。
-      const existingStudentId = localStorage.getItem("student_id");
-
+      // 常にサーバで参加者を作成/取得する（キャッシュ読み出しで join をスキップしない）。
+      // 同名なら既存参加者として復帰、別名なら新規参加者（P2-6）。
       const res = await fetch(`/api/sessions/${code}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          student_id: existingStudentId ?? undefined,
-        }),
+        body: JSON.stringify({ name: name.trim() }),
       });
 
       const data = await res.json();
@@ -53,9 +57,12 @@ export default function JoinPage() {
 
       const { student, session } = data;
 
-      localStorage.setItem("student_id", student.id);
-      localStorage.setItem("student_name", student.name);
-      localStorage.setItem("session_id", session.id);
+      // セッションコード単位のキーに、サーバのレスポンスで上書き保存
+      saveParticipant(session.code, {
+        studentId: student.id,
+        studentName: student.name,
+        sessionId: session.id,
+      });
 
       router.push(`/session/${session.code}`);
     } catch (err) {
@@ -74,12 +81,12 @@ export default function JoinPage() {
             <span className="text-2xl">🌱</span>
             <span className="font-black text-indigo-700 text-lg">育てるAI</span>
           </div>
-          <a
+          <Link
             href="/"
             className="text-sm text-gray-500 hover:text-gray-700 font-medium transition flex items-center gap-1"
           >
             ← トップへ
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -187,5 +194,14 @@ export default function JoinPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// useSearchParams はプリレンダ時に Suspense 境界が必要
+export default function JoinPage() {
+  return (
+    <Suspense fallback={null}>
+      <JoinForm />
+    </Suspense>
   );
 }

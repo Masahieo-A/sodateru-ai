@@ -11,7 +11,16 @@ type Props = {
   forceStumbleUsed?: boolean;
 };
 
-function ScoreRing({ score, label }: { score: number; label: string }) {
+function ScoreRing({
+  score,
+  label,
+  weight,
+}: {
+  score: number;
+  label: string;
+  /** 教え方スコアに占める重み（例: "40%"） */
+  weight: string;
+}) {
   const color =
     score >= 80
       ? "text-green-500"
@@ -23,6 +32,7 @@ function ScoreRing({ score, label }: { score: number; label: string }) {
     <div className="flex flex-col items-center">
       <div className={cn("text-3xl font-black", color)}>{score}</div>
       <div className="text-xs text-gray-500 mt-1">{label}</div>
+      <div className="text-[10px] text-gray-400">重み {weight}</div>
     </div>
   );
 }
@@ -33,7 +43,7 @@ export function TestResult({
   onRetry,
   forceStumbleUsed = false,
 }: Props) {
-  const accuracy = Math.round(
+  const testRate = Math.round(
     (result.ai_correct_count / result.total_questions) * 100
   );
   const scoreColor =
@@ -57,19 +67,91 @@ export function TestResult({
         <div className="text-sm opacity-90">/ 100点</div>
         <div className="mt-3 text-sm bg-white/20 rounded-lg px-3 py-1 inline-block">
           AIのテスト正答率: {result.ai_correct_count}/{result.total_questions}問 （
-          {accuracy}%）
+          {testRate}%）
         </div>
       </div>
 
-      {/* スコア詳細 */}
+      {/* スコア詳細（重みは lib/gemini.ts の SCORE_WEIGHTS と一致させること） */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-bold text-gray-800 mb-4">📊 スコア内訳</h3>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <ScoreRing score={result.score_breakdown.accuracy} label="正確性" />
-          <ScoreRing score={result.score_breakdown.clarity} label="わかりやすさ" />
-          <ScoreRing score={result.score_breakdown.completeness} label="網羅性" />
+        <h3 className="font-bold text-gray-800 mb-1">📊 スコア内訳</h3>
+        <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+          教え方スコア ＝ テスト正答率×40％ ＋ 網羅性×30％ ＋ 正確性×20％ ＋
+          わかりやすさ×10％
+        </p>
+        <div className="grid grid-cols-4 gap-3 text-center">
+          <ScoreRing
+            score={result.score_breakdown.test_rate ?? testRate}
+            label="テスト正答率"
+            weight="40%"
+          />
+          <ScoreRing
+            score={result.score_breakdown.completeness}
+            label="網羅性"
+            weight="30%"
+          />
+          <ScoreRing
+            score={result.score_breakdown.accuracy}
+            label="正確性"
+            weight="20%"
+          />
+          <ScoreRing
+            score={result.score_breakdown.clarity}
+            label="わかりやすさ"
+            weight="10%"
+          />
         </div>
       </div>
+
+      {/* 教えた範囲の判定（網羅性の内訳） */}
+      {result.topicCoverage && result.topicCoverage.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="font-bold text-gray-800 mb-1">📚 教えた範囲の判定</h3>
+          <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+            網羅性スコアはここから計算されています。教わっていないトピックの問題を、AIは推測でしか解けません。
+          </p>
+          <div className="space-y-2">
+            {result.topicCoverage.map((t) => (
+              <div
+                key={t.topicIndex}
+                className={cn(
+                  "rounded-xl px-3 py-2.5 border",
+                  t.covered
+                    ? "bg-green-50 border-green-100"
+                    : "bg-gray-50 border-gray-200"
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="flex-shrink-0">{t.covered ? "✅" : "⬜"}</span>
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "text-sm font-medium",
+                        t.covered ? "text-green-900" : "text-gray-500"
+                      )}
+                    >
+                      {t.topic}
+                    </p>
+                    {t.covered && t.evidence && (
+                      <p className="text-xs text-green-700/80 mt-1 leading-relaxed">
+                        あなたの説明：「
+                        {t.evidence.length > 60
+                          ? `${t.evidence.slice(0, 60)}…`
+                          : t.evidence}
+                        」
+                      </p>
+                    )}
+                    {!t.covered && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        まだ教わっていない → 次はここを教えるとスコアが上がる！
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* AIのフィードバック */}
       <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-5">
@@ -202,6 +284,14 @@ export function TestResult({
                     </span>
                   )}
                   <span className="text-lg">{a.is_correct ? "✅" : "❌"}</span>
+                  {a.taught === false && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-gray-200 text-gray-600">
+                      🔒 未習で誤答
+                      {a.missingTopics?.length
+                        ? `：「${a.missingTopics.join("」「")}」が不足`
+                        : ""}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-600 bg-white/70 rounded-lg p-2 leading-relaxed">
                   💭 {a.thinking}

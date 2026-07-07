@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { runTest } from "@/lib/gemini";
 import { getUnitById } from "@/lib/questions";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import type { LessonMessage } from "@/types";
+import { getCachedAiResponse, cacheAiResponse } from "@/lib/ai-cache";
+import type { LessonMessage, TestResult } from "@/types";
+
+// カバレッジ判定＋テスト評価はリトライ込みで10秒を超えうるため延長（Vercel）
+export const maxDuration = 60;
 
 // POST /api/lesson/test — テスト問題をAIが解いてスコアを確定し、DBに保存
 export async function POST(req: NextRequest) {
@@ -12,8 +16,10 @@ export async function POST(req: NextRequest) {
       dialogue?: LessonMessage[];
       student_id?: string;
       session_id?: string;
+      /** 冪等化キー。同一IDの再呼び出しにはキャッシュを返す（再試行での二重採点・二重保存を防ぐ） */
+      attempt_id?: string;
     } = await req.json();
-    const { unit_id, dialogue, student_id, session_id } = body;
+    const { unit_id, dialogue, student_id, session_id, attempt_id } = body;
 
     if (!unit_id) {
       return NextResponse.json(
@@ -28,6 +34,12 @@ export async function POST(req: NextRequest) {
         { error: "指定された単元が見つかりません" },
         { status: 404 }
       );
+    }
+
+    // 冪等化：同じ attempt_id で既に採点済みならキャッシュを返す（DB保存も済んでいる）
+    const cachedResult = await getCachedAiResponse<TestResult>(attempt_id);
+    if (cachedResult) {
+      return NextResponse.json(cachedResult);
     }
 
     // 授業モードでは、クライアントから送られた dialogue は信用せず、
@@ -99,6 +111,9 @@ export async function POST(req: NextRequest) {
           .eq("id", student_id);
       }
     }
+
+    // 成功結果をキャッシュ（同じ attempt_id の再送で二重採点・二重保存しない）
+    await cacheAiResponse(attempt_id, result);
 
     return NextResponse.json(result);
   } catch (err) {

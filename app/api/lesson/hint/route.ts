@@ -3,6 +3,9 @@ import { teachingHint } from "@/lib/gemini";
 import { getUnitById } from "@/lib/questions";
 import type { LessonMessage } from "@/types";
 
+// Gemini呼び出しはリトライ込みで10秒を超えうるため延長（Vercel）
+export const maxDuration = 60;
+
 // POST /api/lesson/hint — 文法マスターが「教え方」のヒントを返す
 export async function POST(req: NextRequest) {
   try {
