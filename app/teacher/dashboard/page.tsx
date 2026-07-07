@@ -34,23 +34,6 @@ export default function TeacherDashboardPage() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  // 認証チェック（httpOnly Cookie の有効性をサーバーに問い合わせる）。
-  // 認証が確認できたら、そのまま続けてセッション一覧を取得する。
-  useEffect(() => {
-    fetch("/api/teacher")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.authenticated) {
-          setAuthed(true);
-          fetchSessions();
-        } else {
-          router.replace("/teacher");
-        }
-      })
-      .catch(() => router.replace("/teacher"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
-
   // セッション一覧取得（認証は Cookie で自動送信される）
   const fetchSessions = async () => {
     setIsLoadingSessions(true);
@@ -73,6 +56,23 @@ export default function TeacherDashboardPage() {
       setIsLoadingSessions(false);
     }
   };
+
+  // 認証チェック（httpOnly Cookie の有効性をサーバーに問い合わせる）。
+  // 認証が確認できたら、そのまま続けてセッション一覧を取得する。
+  useEffect(() => {
+    fetch("/api/teacher")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authenticated) {
+          setAuthed(true);
+          fetchSessions();
+        } else {
+          router.replace("/teacher");
+        }
+      })
+      .catch(() => router.replace("/teacher"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

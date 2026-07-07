@@ -62,8 +62,16 @@ export function TeacherHintPanel({ unit, dialogue, questionId }: Props) {
         </span>
       </button>
 
-      {error && (
-        <div className="bg-white px-4 py-3 text-sm text-red-600">⚠️ {error}</div>
+      {error && !loading && (
+        <div className="bg-white px-4 py-3 space-y-2">
+          <p className="text-sm text-red-600">⚠️ {error}</p>
+          <button
+            onClick={fetchHint}
+            className="w-full py-2 px-4 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors text-sm"
+          >
+            🔄 もう一度
+          </button>
+        </div>
       )}
 
       {hint && !loading && (

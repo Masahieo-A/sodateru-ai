@@ -2,6 +2,7 @@
 
 import { GrammarUnit } from "@/types";
 import { useState } from "react";
+import { ExplanationBuilder } from "@/components/ExplanationBuilder";
 
 type Props = {
   unit: GrammarUnit;
@@ -101,15 +102,6 @@ export function TeachingInput({
   isLoading,
   initialValue = "",
 }: Props) {
-  const [text, setText] = useState(initialValue);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (text.trim().length >= 20) {
-      onSubmit(text.trim());
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* AIからのメッセージ */}
@@ -119,7 +111,8 @@ export function TeachingInput({
           <div>
             <p className="font-bold text-indigo-800">AIより</p>
             <p className="text-indigo-700 text-sm mt-1 leading-relaxed">
-              「{unit.name}」について何も知りません。まずは基本を教えてください！
+              「{unit.name}」のこと、まだきちんと分かっていません。
+              下のステップに沿って、基本ルールをまとめて教えてください！
               そのあと、先生（あなた）の説明だけを使って練習問題に挑戦し、分からないところを質問します。
               一緒に学んでいきましょう。
             </p>
@@ -130,56 +123,18 @@ export function TeachingInput({
       {/* 教え方ガイドパネル */}
       <TeachingGuidePanel unit={unit} />
 
-      {/* 説明入力フォーム */}
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">
-            ✏️ AIに「{unit.name}」を教えてください
-          </label>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={`上のガイドを参考に、AIへの説明を自由に書いてください。\n\n例：「${unit.name}とは〜です。〇〇のときは△△を使い、□□のときは...」`}
-            rows={8}
-            disabled={isLoading}
-            className="w-full p-4 border-2 border-gray-200 rounded-xl text-gray-800 text-sm
-              focus:outline-none focus:border-indigo-400 transition-colors
-              disabled:bg-gray-50 disabled:text-gray-400 resize-none leading-relaxed"
-          />
-          <div className="flex justify-between mt-1">
-            <span className="text-xs text-gray-400">
-              {text.length < 20 ? (
-                <span className="text-red-400">
-                  あと {20 - text.length} 文字以上入力してください
-                </span>
-              ) : (
-                <span className="text-green-500">✓ 送信できます</span>
-              )}
-            </span>
-            <span className="text-xs text-gray-400">{text.length} 文字</span>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading || text.trim().length < 20}
-          className="w-full py-3 px-6 bg-indigo-600 text-white font-bold rounded-xl
-            hover:bg-indigo-700 transition-colors duration-200
-            disabled:bg-gray-300 disabled:cursor-not-allowed
-            flex items-center justify-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <span className="animate-spin">⏳</span>
-              送信中...
-            </>
-          ) : (
-            <>
-              🚀 AIに教える
-            </>
-          )}
-        </button>
-      </form>
+      {/* 説明ビルダー（ガイド付き / 標準 / 自由記述） */}
+      <div>
+        <label className="block text-sm font-bold text-gray-700 mb-2">
+          ✏️ AIに「{unit.name}」を教えてください
+        </label>
+        <ExplanationBuilder
+          unit={unit}
+          onSubmit={onSubmit}
+          isLoading={isLoading}
+          initialValue={initialValue}
+        />
+      </div>
     </div>
   );
 }

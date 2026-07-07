@@ -2,13 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { TeachingInput } from "@/components/TeachingInput";
 import { TeacherHintPanel } from "@/components/TeacherHintPanel";
 import { PracticeChat } from "@/components/PracticeChat";
+import { ColdOpenChat } from "@/components/ColdOpenChat";
 import { LearningSummary } from "@/components/LearningSummary";
 import { SolvingDisplay } from "@/components/SolvingDisplay";
 import { TestResult } from "@/components/TestResult";
+import { ErrorRetry } from "@/components/ErrorRetry";
 import { getUnitById } from "@/lib/questions";
+import { loadParticipant, clearParticipant } from "@/lib/participant";
 import { supabase } from "@/lib/supabase";
 import type {
   Session,
@@ -20,6 +24,7 @@ import type {
 
 // レッスンのステップ
 type LessonStep =
+  | "cold-open" // 腕試し：AIが前提知識だけで1問挑戦→失敗→質問（初回のみ）
   | "explain" // 基礎説明
   | "practice" // 練習問題で対話
   | "summary" // 学習内容の把握
@@ -28,6 +33,59 @@ type LessonStep =
   | "result"; // スコア表示
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+// ============================================================
+// 共通ヘッダー（render 内で定義するとstateがリセットされるため外出し）
+// ============================================================
+function LessonHeader({
+  unitName,
+  studentName,
+  inLesson,
+  onSwitchUser,
+}: {
+  unitName: string;
+  studentName: string | null;
+  inLesson: boolean;
+  /** 「別の名前で参加し直す」（共有端末対応）。レッスン中は非表示 */
+  onSwitchUser?: () => void;
+}) {
+  return (
+    <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
+      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🌱</span>
+          <span className="font-black text-indigo-700 text-lg">育てるAI</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {studentName && (
+            <span className="text-xs text-gray-500 font-medium">
+              {studentName}
+              {!inLesson && onSwitchUser && (
+                <button
+                  onClick={onSwitchUser}
+                  className="ml-2 text-indigo-400 hover:text-indigo-600 underline underline-offset-2"
+                >
+                  別の名前で参加し直す
+                </button>
+              )}
+            </span>
+          )}
+          <span className="text-xs bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full">
+            {unitName}
+          </span>
+          {!inLesson && (
+            <Link
+              href="/"
+              className="text-sm text-gray-400 hover:text-gray-700 font-medium transition flex items-center gap-1"
+            >
+              ← トップへ
+            </Link>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
 
 // ============================================================
 // ランキングコンポーネント
@@ -115,8 +173,8 @@ export default function SessionPage({
   const [studentName, setStudentName] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // レッスン状態
-  const [lessonStep, setLessonStep] = useState<LessonStep>("explain");
+  // レッスン状態（初回はコールドオープン＝AIの腕試しから始める）
+  const [lessonStep, setLessonStep] = useState<LessonStep>("cold-open");
   const [dialogue, setDialogue] = useState<LessonMessage[]>([]);
   const [practiceIndex, setPracticeIndex] = useState(0);
   // 練習問題の「初回回答」で間違えた数（メタ認知のための“あえて間違え”判定に使う）
@@ -124,6 +182,9 @@ export default function SessionPage({
   // “あえて間違える”演出が実際に発動したか（結果画面で事後開示するために保持）
   const [didForceStumble, setDidForceStumble] = useState(false);
   const [testResult, setTestResult] = useState<TR | null>(null);
+  // 冪等化キーの接頭辞。レッスン実行（挑戦）ごとに一意で、
+  // 同一実行内の再試行・戻る操作ではAI応答が二重生成されない
+  const [lessonRunId, setLessonRunId] = useState(() => crypto.randomUUID());
 
   const [error, setError] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
@@ -153,18 +214,17 @@ export default function SessionPage({
       const resolvedCode = resolvedParams.code;
       setCode(resolvedCode);
 
-      const storedStudentId = localStorage.getItem("student_id");
-      const storedStudentName = localStorage.getItem("student_name");
-      const storedSessionId = localStorage.getItem("session_id");
-
-      if (!storedStudentId || !storedStudentName || !storedSessionId) {
-        router.push("/join");
+      // 参加者情報はセッションコード単位のキーから読む（共有端末で混ざらない）
+      const participant = loadParticipant(resolvedCode);
+      if (!participant) {
+        router.push(`/join?code=${resolvedCode}`);
         return;
       }
 
-      setStudentId(storedStudentId);
-      setStudentName(storedStudentName);
-      setSessionId(storedSessionId);
+      setStudentId(participant.studentId);
+      setStudentName(participant.studentName);
+      setSessionId(participant.sessionId);
+      const storedSessionId = participant.sessionId;
 
       const res = await fetch(`/api/sessions/${resolvedCode}`);
       if (!res.ok) {
@@ -243,8 +303,9 @@ export default function SessionPage({
   }, []);
 
   // 基礎説明の送信 → 練習へ
+  // ※コールドオープンでのやりとりも「教えた内容」なので、上書きせず追記する
   const handleExplainSubmit = (text: string) => {
-    setDialogue([{ role: "teacher", content: text }]);
+    setDialogue((d) => [...d, { role: "teacher", content: text }]);
     setPracticeIndex(0);
     setInitialWrongCount(0);
     setDidForceStumble(false);
@@ -281,6 +342,8 @@ export default function SessionPage({
           dialogue,
           student_id: studentId,
           session_id: sessionId,
+          // 同一実行・同一対話内容なら同じキー → 再試行で二重採点・二重保存しない
+          attempt_id: `${lessonRunId}:test:d${dialogue.length}`,
         }),
       });
       const data = await res.json();
@@ -301,7 +364,16 @@ export default function SessionPage({
     setDidForceStumble(false);
     setTestResult(null);
     setError(null);
+    // 新しい挑戦なので冪等化キーの接頭辞も切り替える（前回のキャッシュを引かない）
+    setLessonRunId(crypto.randomUUID());
     setLessonStep("explain");
+  };
+
+  // 別の名前で参加し直す（共有端末・クラス替え対応）
+  const handleSwitchUser = () => {
+    if (!code) return;
+    clearParticipant(code);
+    router.push(`/join?code=${code}`);
   };
 
   // ============================================================
@@ -345,34 +417,13 @@ export default function SessionPage({
   // 「レッスン中」か判定（この間はトップボタンを非表示）
   const inLesson = session.status === "active" && lessonStep !== "result";
 
-  // ============================================================
-  // 共通ヘッダー
-  // ============================================================
-  const Header = () => (
-    <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
-      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🌱</span>
-          <span className="font-black text-indigo-700 text-lg">育てるAI</span>
-        </div>
-        <div className="flex items-center gap-3">
-          {studentName && (
-            <span className="text-xs text-gray-500 font-medium">{studentName}</span>
-          )}
-          <span className="text-xs bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full">
-            {unit.name}
-          </span>
-          {!inLesson && (
-            <a
-              href="/"
-              className="text-sm text-gray-400 hover:text-gray-700 font-medium transition flex items-center gap-1"
-            >
-              ← トップへ
-            </a>
-          )}
-        </div>
-      </div>
-    </header>
+  const header = (
+    <LessonHeader
+      unitName={unit.name}
+      studentName={studentName}
+      inLesson={inLesson}
+      onSwitchUser={handleSwitchUser}
+    />
   );
 
   // ============================================================
@@ -381,7 +432,7 @@ export default function SessionPage({
   if (session.status === "waiting") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col">
-        <Header />
+        {header}
         <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6">
           <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-8 text-center">
             <div className="text-5xl mb-4 animate-pulse">🌱</div>
@@ -442,12 +493,30 @@ export default function SessionPage({
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col">
-        <Header />
+        {header}
         <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-5">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-              ⚠️ {error}
-            </div>
+          {error &&
+            // テスト失敗時は summary 画面に戻しているので、その場で再試行できるようにする
+            (lessonStep === "summary" ? (
+              <ErrorRetry
+                message={error}
+                onRetry={handleStartTest}
+                note="再試行しても、教えた内容は消えません。"
+              />
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+                ⚠️ {error}
+              </div>
+            ))}
+
+          {/* 腕試し（コールドオープン）：AIが先につまずいて質問する */}
+          {lessonStep === "cold-open" && (
+            <ColdOpenChat
+              unit={unit}
+              onAppend={appendDialogue}
+              onProceed={() => setLessonStep("explain")}
+              attemptScope={lessonRunId}
+            />
           )}
 
           {/* 基礎説明 */}
@@ -457,7 +526,6 @@ export default function SessionPage({
                 unit={unit}
                 onSubmit={handleExplainSubmit}
                 isLoading={false}
-                initialValue={dialogue[0]?.content ?? ""}
               />
               <TeacherHintPanel unit={unit} dialogue={dialogue} />
             </>
@@ -478,6 +546,7 @@ export default function SessionPage({
                 isLast={practiceIndex === unit.practiceQuestions.length - 1}
                 onFirstAnswer={handleFirstAnswer}
                 onStumble={() => setDidForceStumble(true)}
+                attemptScope={lessonRunId}
                 // このままだと全問正解（初回ミス0）かつ最後の問題なら、
                 // メタ認知のため“あえて1問間違える”
                 forceStumble={
@@ -502,6 +571,7 @@ export default function SessionPage({
               studentId={studentId}
               onStartTest={handleStartTest}
               onBack={() => setLessonStep("practice")}
+              attemptScope={lessonRunId}
             />
           )}
 
@@ -548,7 +618,7 @@ export default function SessionPage({
   // ============================================================
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col">
-      <Header />
+      {header}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6">
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-8 text-white text-center shadow-lg">
           <div className="text-5xl mb-3">🎉</div>
@@ -570,14 +640,14 @@ export default function SessionPage({
           </p>
         </div>
 
-        <a
+        <Link
           href="/"
           className="w-full py-3 px-6 bg-indigo-600 text-white font-bold rounded-xl
             hover:bg-indigo-700 transition-colors duration-200
             flex items-center justify-center gap-2"
         >
           🏠 トップページへ
-        </a>
+        </Link>
       </main>
     </div>
   );

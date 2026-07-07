@@ -2,73 +2,104 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ErrorRetry } from "@/components/ErrorRetry";
-import type { GrammarUnit, MCQuestion, LessonMessage, PracticeTurn } from "@/types";
+import type { GrammarUnit, LessonMessage, PracticeTurn } from "@/types";
 
 type Bubble =
-  | { kind: "student"; content: string; chosenLabel?: string; isCorrect?: boolean }
+  | { kind: "student"; content: string; chosenLabel?: string }
   | { kind: "teacher"; content: string };
 
 type Props = {
   unit: GrammarUnit;
-  question: MCQuestion;
-  questionIndex: number; // 0-based
-  totalQuestions: number;
-  /** これまでのレッスン全体の対話（この問題開始時点まで） */
-  dialogue: LessonMessage[];
   /** 親のレッスン対話へ1メッセージ追記 */
   onAppend: (m: LessonMessage) => void;
-  /** 次の問題へ（最終問題なら学習まとめへ） */
-  onNext: () => void;
-  isLast: boolean;
-  /**
-   * プログラムが「このままだと全問正解」と判断した場合に true。
-   * 初回回答であえて“もっともらしい誤解”をさせ、メタ認知のきっかけを作る。
-   */
-  forceStumble?: boolean;
-  /** 初回回答の正誤を親へ通知（全問正解判定の集計に使う） */
-  onFirstAnswer?: (isCorrect: boolean) => void;
-  /** “あえて間違える”演出が実際に発動したことを親へ通知（事後開示に使う） */
-  onStumble?: () => void;
-  /**
-   * 冪等化キーの接頭辞（レッスン実行ごとに一意）。
-   * 初回ターンはこのスコープから決定的に生成し、「戻る」で同じターンを二重生成しない。
-   */
+  /** 基礎説明（説明ビルダー）へ進む */
+  onProceed: () => void;
+  /** 冪等化キーの接頭辞（レッスン実行ごとに一意） */
   attemptScope?: string;
 };
 
-export function PracticeChat({
-  unit,
-  question,
-  questionIndex,
-  totalQuestions,
-  dialogue,
-  onAppend,
-  onNext,
-  isLast,
-  forceStumble = false,
-  onFirstAnswer,
-  onStumble,
-  attemptScope,
-}: Props) {
-  // この問題で表示する吹き出し（この問題開始以降のやりとり）
+/**
+ * 知識契約カード：AIが最初から知っていること／今日教えてもらうことを
+ * レッスン冒頭で明示する。「どこまで教えればいいのか」の不安への回答。
+ */
+function KnowledgeContract({ unit }: { unit: GrammarUnit }) {
+  const [open, setOpen] = useState(false);
+  const { assumedKnowledge, coverageTopics } = unit.teachingGuide;
+
+  return (
+    <div className="rounded-xl border border-indigo-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base">🤝</span>
+          <span className="text-sm font-bold text-indigo-700">
+            このAIが知っていること・知らないこと
+          </span>
+        </div>
+        <span className="text-indigo-400 text-xs font-medium">
+          {open ? "▲ 閉じる" : "▼ 開く"}
+        </span>
+      </button>
+      {open && (
+        <div className="bg-white px-4 py-3 space-y-3">
+          <div>
+            <p className="text-xs font-bold text-gray-400 mb-1.5">
+              🧠 最初から知っていること（教えなくてOK）
+            </p>
+            <ul className="space-y-1">
+              {assumedKnowledge.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                  <span className="mt-0.5 flex-shrink-0">✓</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-indigo-600 mb-1.5">
+              📚 今日きみが教えること（これだけでOK）
+            </p>
+            <ul className="space-y-1">
+              {coverageTopics.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                  <span className="mt-0.5 text-indigo-300 flex-shrink-0 font-bold">□</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * コールドオープン：レッスン冒頭、AIがまだ何も教わっていない状態で
+ * 練習問題1問に挑戦し、失敗して具体的な質問をする。
+ * 生徒の最初の入力を「説明の作文」ではなく「質問への返答」にすることで、
+ * 0→1のハードルを下げる（教える必然性も先に体感させる）。
+ */
+export function ColdOpenChat({ unit, onAppend, onProceed, attemptScope }: Props) {
+  const question = unit.practiceQuestions[0];
+
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
-  const [satisfied, setSatisfied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // API送信用の「最新の対話全文」を ref で保持（state の非同期性を回避）
-  const convoRef = useRef<LessonMessage[]>(dialogue);
-  // 初回ターンを一度だけ起動するためのガード
+  const convoRef = useRef<LessonMessage[]>([]);
   const startedRef = useRef(false);
-  // この問題で先生が追加で教えた回数（安全弁：2回以上で必ず次へ進める）
   const teacherRepliesRef = useRef(0);
+  const [replied, setReplied] = useState(false);
   // 冪等化キー：ターンごとに発行し、エラー時の再試行では同じIDを再送する
-  // （サーバがキャッシュを返すため、連打・再試行で二重生成されない）
   const attemptIdRef = useRef<string>(
-    attemptScope ? `${attemptScope}:q${question.id}:init` : crypto.randomUUID()
+    attemptScope ? `${attemptScope}:coldopen:init` : crypto.randomUUID()
   );
-  // 再試行用に直近ターンの種別を保持
   const lastFollowupRef = useRef(false);
 
   const runTurn = async (isFollowup: boolean) => {
@@ -85,8 +116,7 @@ export function PracticeChat({
           dialogue: convoRef.current,
           is_followup: isFollowup,
           exchange_count: teacherRepliesRef.current,
-          // 初回ターンのみ forceStumble を送る（あえて1問間違えさせる）
-          force_stumble: !isFollowup && forceStumble,
+          is_cold_open: true,
           attempt_id: attemptIdRef.current,
         }),
       });
@@ -97,23 +127,10 @@ export function PracticeChat({
       const studentMsg: LessonMessage = { role: "student", content: turn.message };
       convoRef.current = [...convoRef.current, studentMsg];
       onAppend(studentMsg);
-
       setBubbles((b) => [
         ...b,
-        {
-          kind: "student",
-          content: turn.message,
-          chosenLabel: turn.chosenLabel,
-          isCorrect: turn.isCorrect,
-        },
+        { kind: "student", content: turn.message, chosenLabel: turn.chosenLabel },
       ]);
-      // 初回回答の正誤を親に通知（全問正解しそうかの集計に使う）
-      if (!isFollowup) onFirstAnswer?.(!!turn.isCorrect);
-      // “あえて間違える”演出が発動した初回ターンを親へ通知（事後開示用）
-      if (!isFollowup && forceStumble) onStumble?.();
-      // 安全弁：2回以上教えたら、AIの応答に関わらず次へ進めるようにする
-      // （同じ質問の繰り返しで生徒が足止めされ、意欲を失うのを防ぐ）
-      setSatisfied(!!turn.satisfied || teacherRepliesRef.current >= 2);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -121,11 +138,9 @@ export function PracticeChat({
     }
   };
 
-  // 問題が変わったら初回ターンを起動
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
-    convoRef.current = dialogue;
     runTurn(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -137,36 +152,37 @@ export function PracticeChat({
     convoRef.current = [...convoRef.current, teacherMsg];
     onAppend(teacherMsg);
     teacherRepliesRef.current += 1;
+    setReplied(true);
     setBubbles((b) => [...b, { kind: "teacher", content: text }]);
     setReply("");
-    setSatisfied(false);
     // 新しいターンなので冪等化キーを発行し直す（再試行時はこのIDを使い回す）
     attemptIdRef.current = crypto.randomUUID();
     await runTurn(true);
   };
 
+  // 直近のAIの発話（質問）。入力欄のプレースホルダーに使い、
+  // 「作文」ではなく「質問への返答」であることを分かりやすくする（P1-4）
+  const lastAiMessage = [...bubbles]
+    .reverse()
+    .find((b) => b.kind === "student")?.content;
+
   return (
     <div className="space-y-4">
-      {/* 進捗 */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-indigo-600">
-          練習問題 {questionIndex + 1} / {totalQuestions}
-        </span>
-        <div className="flex gap-1">
-          {Array.from({ length: totalQuestions }).map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 w-6 rounded-full ${
-                i < questionIndex
-                  ? "bg-indigo-500"
-                  : i === questionIndex
-                  ? "bg-indigo-300"
-                  : "bg-gray-200"
-              }`}
-            />
-          ))}
+      {/* 導入メッセージ */}
+      <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+        <div className="flex items-start gap-2">
+          <span className="text-2xl">🤖</span>
+          <div>
+            <p className="font-bold text-indigo-800">まずはAIの腕試し</p>
+            <p className="text-indigo-700 text-sm mt-1 leading-relaxed">
+              「{unit.name}」はまだ教わっていませんが、いまの知識だけで1問だけ挑戦してみます。
+              つまずいたところを教えてあげてください！
+            </p>
+          </div>
         </div>
       </div>
+
+      <KnowledgeContract unit={unit} />
 
       {/* 問題カード */}
       <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5">
@@ -175,7 +191,6 @@ export function PracticeChat({
         </p>
         <div className="grid grid-cols-2 gap-2">
           {question.choices.map((c) => {
-            // AIが最後に選んだラベル
             const lastStudent = [...bubbles]
               .reverse()
               .find((b) => b.kind === "student") as
@@ -187,23 +202,20 @@ export function PracticeChat({
                 key={c.label}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${
                   chosen
-                    ? lastStudent?.isCorrect
-                      ? "border-green-400 bg-green-50 text-green-800"
-                      : "border-red-400 bg-red-50 text-red-800"
+                    ? "border-amber-400 bg-amber-50 text-amber-800"
                     : "border-gray-200 bg-gray-50 text-gray-700"
                 }`}
               >
                 <span className="font-bold">{c.label}.</span>
                 <span>{c.text}</span>
-                {chosen && (
-                  <span className="ml-auto">
-                    {lastStudent?.isCorrect ? "✅" : "❌"}
-                  </span>
-                )}
+                {chosen && <span className="ml-auto">🤔</span>}
               </div>
             );
           })}
         </div>
+        <p className="text-xs text-gray-400 mt-2">
+          ※ 腕試しなので、正解かどうかはまだ表示しません
+        </p>
       </div>
 
       {/* 対話 */}
@@ -250,17 +262,25 @@ export function PracticeChat({
         />
       )}
 
-      {/* 入力 or 次へ */}
-      {!loading && (
+      {/* 返答入力 + 次へ（エラー時も、基礎説明へは進めるようにする） */}
+      {!loading && (bubbles.length > 0 || error) && (
         <div className="space-y-3">
           <div className="bg-white rounded-2xl border border-gray-200 p-3">
             <label className="block text-xs font-bold text-gray-500 mb-1.5">
-              💬 AIにさらに教える・質問に答える
+              💬 AIの質問に、ひとことで答えてあげよう
             </label>
             <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              placeholder="AIのつぶやきや質問に答えて、もっと深く教えてあげましょう。"
+              placeholder={
+                lastAiMessage
+                  ? `AIの質問「${
+                      lastAiMessage.length > 40
+                        ? `${lastAiMessage.slice(0, 40)}…`
+                        : lastAiMessage
+                    }」に、知っていることをひとことで答えてあげよう`
+                  : "完璧じゃなくてOK。知っていることをひとことで教えてあげましょう。"
+              }
               rows={3}
               className="w-full p-2 text-sm text-gray-800 focus:outline-none resize-none leading-relaxed"
             />
@@ -270,33 +290,24 @@ export function PracticeChat({
               className="w-full mt-1 py-2.5 px-4 bg-indigo-600 text-white font-bold rounded-xl
                 hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
             >
-              ✏️ 追加で教える
+              ✏️ 答えてあげる
             </button>
           </div>
 
           <button
-            onClick={onNext}
+            onClick={onProceed}
             className={`w-full py-3.5 px-6 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              error
-                ? "bg-amber-50 border-2 border-amber-300 text-amber-700 hover:bg-amber-100"
-                : satisfied
+              replied
                 ? "bg-green-500 text-white hover:bg-green-600 shadow-md"
                 : "bg-indigo-50 border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-100"
             }`}
           >
-            {satisfied && !error ? "✅ " : ""}
-            {error
-              ? `⚠️ AIの解答をスキップして${isLast ? "学習内容の確認へ" : "次へ"} →`
-              : isLast
-              ? "学習内容を確認する →"
-              : "次の練習問題へ →"}
+            {replied ? "✅ " : ""}📚 基本ルールをまとめて教える →
           </button>
           <p className="text-center text-xs font-medium text-gray-400">
-            {error
-              ? "スキップすると、この問題でAIに教える機会はなくなります。できれば「もう一度」を試してください。"
-              : satisfied
-              ? "AIはこの問題を十分に理解できたようです！"
-              : "いつでも次に進めます。納得いくまで教えてもOK。"}
+            {replied
+              ? "いい調子！次は、ここまでの内容もふまえて基本からまとめて教えてあげよう。"
+              : "先に質問に答えてあげると、AIに伝わりやすくなります（すぐ進んでもOK）。"}
           </p>
         </div>
       )}

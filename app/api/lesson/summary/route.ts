@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { learningSummary } from "@/lib/gemini";
 import { getUnitById } from "@/lib/questions";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import type { LessonMessage } from "@/types";
+import { getCachedAiResponse, cacheAiResponse } from "@/lib/ai-cache";
+import type { LessonMessage, LearningSummary as LS } from "@/types";
+
+// Gemini呼び出しはリトライ込みで10秒を超えうるため延長（Vercel）
+export const maxDuration = 60;
 
 // POST /api/lesson/summary — 生徒AIの学習内容をまとめる
 export async function POST(req: NextRequest) {
@@ -11,8 +15,10 @@ export async function POST(req: NextRequest) {
       unit_id?: string;
       dialogue?: LessonMessage[];
       student_id?: string;
+      /** 冪等化キー。同一IDの再呼び出しにはキャッシュを返す（再試行対策） */
+      attempt_id?: string;
     } = await req.json();
-    const { unit_id, dialogue, student_id } = body;
+    const { unit_id, dialogue, student_id, attempt_id } = body;
 
     if (!unit_id || !dialogue) {
       return NextResponse.json(
@@ -29,7 +35,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const summary = await learningSummary(unit, dialogue);
+    const cached = await getCachedAiResponse<LS>(attempt_id);
+    const summary = cached ?? (await learningSummary(unit, dialogue));
+    if (!cached) await cacheAiResponse(attempt_id, summary);
 
     // 授業モード: 対話ログとサマリーをサーバー保存。
     // 以降のテストはこれを「正」として使い、クライアント側の改ざんを防ぐ
