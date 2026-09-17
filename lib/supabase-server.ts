@@ -60,10 +60,14 @@ export function isTeacherAuthorized(req: Request): boolean {
 }
 
 // セッション参加者一覧（ベストスコア降順）。教員管理画面・生徒画面のランキング共用
+// 生徒画面からも参加コードだけで取得できるため、対話ログ等は返さず表示に必要な列に限定する
+const STUDENT_PUBLIC_COLUMNS =
+  "id, session_id, name, best_score, attempt_count, last_attempt_at, created_at";
+
 export async function listStudents(sessionId: string) {
   return supabaseAdmin
     .from("students")
-    .select("*")
+    .select(STUDENT_PUBLIC_COLUMNS)
     .eq("session_id", sessionId)
     .order("best_score", { ascending: false });
 }
