@@ -13,7 +13,6 @@ import { TestResult } from "@/components/TestResult";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { getUnitById } from "@/lib/questions";
 import { loadParticipant, clearParticipant } from "@/lib/participant";
-import { supabase } from "@/lib/supabase";
 import type {
   Session,
   Student,
@@ -21,6 +20,8 @@ import type {
   LessonMessage,
   TestResult as TR,
 } from "@/types";
+
+const POLL_INTERVAL_MS = 3000;
 
 // レッスンのステップ
 type LessonStep =
@@ -193,21 +194,30 @@ export default function SessionPage({
   // ============================================================
   // 生徒一覧の再フェッチ
   // ============================================================
-  const fetchStudents = useCallback(async (sid: string) => {
-    const { data } = await supabase
-      .from("students")
-      .select("*")
-      .eq("session_id", sid)
-      .order("best_score", { ascending: false });
-    if (data) setStudents(data as Student[]);
+  // Supabase へはブラウザから直接接続せず自サイトの API 経由で取得する
+  // （*.supabase.co が遮断されたネットワークで "Failed to fetch" になるため）
+  const fetchStudents = useCallback(async (sessionCode: string) => {
+    const res = await fetch(`/api/sessions/${sessionCode}/students`, { cache: "no-store" });
+    if (!res.ok) return;
+    setStudents((await res.json()) as Student[]);
+  }, []);
+
+  // セッション状態（待機中→授業中→終了）の変化を反映
+  const refreshSession = useCallback(async (sessionCode: string) => {
+    const res = await fetch(`/api/sessions/${sessionCode}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const latest: Session = await res.json();
+    setSession((prev) =>
+      prev && prev.id === latest.id && prev.status === latest.status ? prev : latest
+    );
   }, []);
 
   // ============================================================
   // 初期化
   // ============================================================
   useEffect(() => {
-    let sessionChannel: ReturnType<typeof supabase.channel> | null = null;
-    let rankingChannel: ReturnType<typeof supabase.channel> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
 
     async function initialize() {
       const resolvedParams = await params;
@@ -224,7 +234,6 @@ export default function SessionPage({
       setStudentId(participant.studentId);
       setStudentName(participant.studentName);
       setSessionId(participant.sessionId);
-      const storedSessionId = participant.sessionId;
 
       const res = await fetch(`/api/sessions/${resolvedCode}`);
       if (!res.ok) {
@@ -244,40 +253,16 @@ export default function SessionPage({
       }
       setUnit(unitData);
 
-      await fetchStudents(storedSessionId);
+      await fetchStudents(resolvedCode);
 
-      const uid = Date.now();
-      sessionChannel = supabase
-        .channel(`session-status-${resolvedCode}-${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "sessions",
-            filter: `code=eq.${resolvedCode}`,
-          },
-          (payload) => {
-            setSession(payload.new as Session);
-          }
-        )
-        .subscribe();
-
-      rankingChannel = supabase
-        .channel(`ranking-${storedSessionId}-${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "students",
-            filter: `session_id=eq.${storedSessionId}`,
-          },
-          () => {
-            fetchStudents(storedSessionId);
-          }
-        )
-        .subscribe();
+      // Realtime の代わりにポーリングで状態とランキングを更新
+      if (!cancelled) {
+        pollTimer = setInterval(() => {
+          if (document.hidden) return;
+          refreshSession(resolvedCode).catch(() => {});
+          fetchStudents(resolvedCode).catch(() => {});
+        }, POLL_INTERVAL_MS);
+      }
 
       setIsInitializing(false);
     }
@@ -289,8 +274,8 @@ export default function SessionPage({
     });
 
     return () => {
-      if (sessionChannel) supabase.removeChannel(sessionChannel);
-      if (rankingChannel) supabase.removeChannel(rankingChannel);
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
