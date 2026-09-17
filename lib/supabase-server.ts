@@ -58,3 +58,12 @@ export function isTeacherAuthorized(req: Request): boolean {
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b); // タイミング攻撃対策
 }
+
+// セッション参加者一覧（ベストスコア降順）。教員管理画面・生徒画面のランキング共用
+export async function listStudents(sessionId: string) {
+  return supabaseAdmin
+    .from("students")
+    .select("*")
+    .eq("session_id", sessionId)
+    .order("best_score", { ascending: false });
+}

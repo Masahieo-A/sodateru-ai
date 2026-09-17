@@ -2,11 +2,11 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { GRAMMAR_UNITS } from "@/lib/questions";
 import { Session, Student, SessionStatus } from "@/types";
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+const POLL_INTERVAL_MS = 3000;
 
 function StatusBadge({ status }: { status: SessionStatus }) {
   const config = {
@@ -52,68 +52,45 @@ export default function SessionManagePage({
       .catch(() => router.replace("/teacher"));
   }, [router]);
 
-  // セッション取得
+  // セッション詳細 + 生徒一覧を取得し、定期的に再取得する。
+  // ブラウザから Supabase へ直接接続すると、*.supabase.co が遮断された
+  // ネットワーク（学校のフィルタ等）で "TypeError: Failed to fetch" になるため、
+  // 自サイトの API 経由で取得し、Realtime の代わりにポーリングで更新する。
   useEffect(() => {
-    if (!id) return;
+    if (!id || !authed) return;
+    let cancelled = false;
 
-    const fetchSession = async () => {
-      setIsLoading(true);
-      setError(null);
+    const load = async (initial: boolean) => {
+      if (!initial && document.hidden) return;
       try {
-        const { data, error: sbError } = await supabase
-          .from("sessions")
-          .select("*")
-          .eq("id", id)
-          .single();
-        if (sbError) throw new Error(sbError.message);
-        setSession(data as Session);
+        const res = await fetch(`/api/teacher/sessions/${id}`, { cache: "no-store" });
+        if (res.status === 401) {
+          router.replace("/teacher");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? "セッションの取得に失敗しました");
+        if (cancelled) return;
+        setSession(data.session as Session);
+        setStudents(data.students as Student[]);
+        setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "セッションの取得に失敗しました");
+        // 初回のみ画面全体のエラーにする（更新中の一時的な失敗は次回に持ち越す）
+        if (initial && !cancelled) {
+          setError(err instanceof Error ? err.message : "セッションの取得に失敗しました");
+        }
       } finally {
-        setIsLoading(false);
+        if (initial && !cancelled) setIsLoading(false);
       }
     };
 
-    fetchSession();
-  }, [id]);
-
-  // 生徒一覧初回フェッチ + Realtime購読
-  useEffect(() => {
-    if (!session) return;
-
-    // 初回フェッチ
-    const fetchStudents = async () => {
-      const { data } = await supabase
-        .from("students")
-        .select("*")
-        .eq("session_id", session.id)
-        .order("best_score", { ascending: false });
-      if (data) setStudents(data as Student[]);
-    };
-    fetchStudents();
-
-    // Realtime 購読
-    const channel = supabase
-      .channel(`students:${session.id}:${Date.now()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "students",
-          filter: `session_id=eq.${session.id}`,
-        },
-        () => {
-          // 変更があるたびに再フェッチ
-          fetchStudents();
-        }
-      )
-      .subscribe();
-
+    load(true);
+    const timer = setInterval(() => load(false), POLL_INTERVAL_MS);
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(timer);
     };
-  }, [session]);
+  }, [id, authed, router]);
 
   const handleStart = async () => {
     if (!session) return;
