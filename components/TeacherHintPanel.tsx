@@ -5,6 +5,8 @@ import type { GrammarUnit, LessonMessage, TeachingHint } from "@/types";
 
 type Props = {
   unit: GrammarUnit;
+  participantId: string;
+  sessionId: string;
   dialogue: LessonMessage[];
   /** いま取り組んでいる練習問題ID（あれば） */
   questionId?: number;
@@ -14,7 +16,13 @@ type Props = {
  * 「教える際のヒントを見る」ボタン。
  * 押すと文法マスター（教師AI）が "教え方" のヒントを返す。
  */
-export function TeacherHintPanel({ unit, dialogue, questionId }: Props) {
+export function TeacherHintPanel({
+  unit,
+  participantId,
+  sessionId,
+  dialogue,
+  questionId,
+}: Props) {
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +36,8 @@ export function TeacherHintPanel({ unit, dialogue, questionId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unit_id: unit.id,
+          participant_id: participantId,
+          session_id: sessionId,
           dialogue,
           question_id: questionId,
         }),

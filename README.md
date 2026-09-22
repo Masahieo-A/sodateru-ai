@@ -1,40 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 育てるAI
 
-## Getting Started
+学習者がAIへ教え、AIの推論を確認・修正し、最後に独立問題で自分の理解も確かめる授業アプリです。
 
-First, run the development server:
+## 現行構成
+
+- Next.js 16 / React 19 / TypeScript
+- Cloudflare Workers（vinext）
+- Cloudflare D1
+- Google OpenID Connect（`tomidah.com` の確認済みアカウントのみ）
+- Gemini API
+
+教員権限は、`TEACHER_ALLOWLIST` またはD1の `teacher_allowlist` に登録したアカウントだけに付与します。
+
+## ローカル起動
+
+1. `.env.example` を参考に、Git管理外の `.dev.vars` を作成します。
+2. D1マイグレーションを適用します。
+3. vinext 開発サーバーを起動します。
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npx wrangler d1 migrations apply DB --local --config wrangler.jsonc
+npm run dev:vinext
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+検証コマンド:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run lint
+npm run typecheck
+npm run build:vinext
+npm audit --omit=dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+教材JSONの契約は `curriculum/schema/curriculum.schema.json`、例は `curriculum/examples/current-units.json` にあります。教材からJSONを生成するAI向け指示文は、運用時にチャットで渡し、リポジトリには保存しません。
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
----
-開発者向け情報は [docs/構成.md](docs/構成.md) を参照。
-機能要件は [docs/要件定義.md](docs/要件定義.md) を参照。
+詳細は [docs/構成.md](docs/構成.md) を参照してください。

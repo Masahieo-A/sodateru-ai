@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { teachingHint } from "@/lib/gemini";
 import { getUnitById } from "@/lib/questions";
+import { authorizeLessonScope, boundedDialogue } from "@/lib/learning/access";
 import type { LessonMessage } from "@/types";
 
 // Gemini呼び出しはリトライ込みで10秒を超えうるため延長（Vercel）
@@ -13,13 +14,28 @@ export async function POST(req: NextRequest) {
       unit_id?: string;
       dialogue?: LessonMessage[];
       question_id?: number;
+      participant_id?: string;
+      session_id?: string;
     } = await req.json();
-    const { unit_id, dialogue, question_id } = body;
+    const { unit_id, dialogue, question_id, participant_id, session_id } = body;
+    const safeDialogue = boundedDialogue(dialogue);
 
-    if (!unit_id || !dialogue) {
+    if (!unit_id || !safeDialogue) {
       return NextResponse.json(
         { error: "unit_id / dialogue は必須です" },
         { status: 400 }
+      );
+    }
+
+    const authorization = await authorizeLessonScope(req, {
+      participantId: participant_id,
+      sessionId: session_id,
+      unitId: unit_id,
+    });
+    if (!authorization.ok) {
+      return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status },
       );
     }
 
@@ -36,7 +52,7 @@ export async function POST(req: NextRequest) {
         ? unit.practiceQuestions.find((q) => q.id === question_id)
         : undefined;
 
-    const hint = await teachingHint(unit, dialogue, question);
+    const hint = await teachingHint(unit, safeDialogue, question);
     return NextResponse.json(hint);
   } catch (err) {
     console.error("[/api/lesson/hint]", err);

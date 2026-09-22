@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sodateru-ai",
+  "compatibility_date": "2026-09-22",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "vinext/server/fetch-handler",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "APP_URL": "https://sodateru-ai.aomatsu-apps.workers.dev"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sodateru-ai",
+      "database_id": "42d220e1-1b70-49b7-83cc-311d9ab8306a",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

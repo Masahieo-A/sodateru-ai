@@ -8,7 +8,8 @@ type Props = {
   unit: GrammarUnit;
   dialogue: LessonMessage[];
   /** 授業モードの生徒ID。渡すと対話ログ・サマリーをサーバー保存する */
-  studentId?: string | null;
+  studentId: string;
+  sessionId: string;
   /** 「テストを受けてもらう」 */
   onStartTest: () => void;
   /** 練習に戻る */
@@ -25,6 +26,7 @@ export function LearningSummary({
   unit,
   dialogue,
   studentId,
+  sessionId,
   onStartTest,
   onBack,
   attemptScope,
@@ -49,7 +51,8 @@ export function LearningSummary({
         body: JSON.stringify({
           unit_id: unit.id,
           dialogue,
-          student_id: studentId ?? undefined,
+          student_id: studentId,
+          session_id: sessionId,
           attempt_id: attemptIdRef.current,
         }),
       });
@@ -62,8 +65,7 @@ export function LearningSummary({
     } finally {
       if (!cancelledRef.current) setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dialogue, sessionId, studentId, unit.id]);
 
   useEffect(() => {
     cancelledRef.current = false;

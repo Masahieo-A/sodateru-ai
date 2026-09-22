@@ -1,3 +1,7 @@
+# 注意（2026-09-22）
+
+この文書はSupabase/Vercel時代の旧設計資料です。現行実装はCloudflare Workers・D1・Google OIDCへ移行済みです。正しいセットアップは `README.md` と `docs/構成.md` を参照してください。
+
 # 育てるAI — 設計・使用書
 
 > AIに英文法を「教える」ことで、自分自身の理解と説明力を高める対話型学習Webアプリ
@@ -642,3 +646,6 @@ Realtime が有効か確認すること。
 ---
 
 *作成日：2026-05-26 / 対話型フロー刷新：2026-06-06*
+# 注意（2026-09-22）
+
+この文書はSupabase/Vercel時代の旧設計資料です。現行実装はCloudflare Workers・D1・Google OIDCへ移行済みです。正しいセットアップは `README.md` と `docs/構成.md` を参照してください。

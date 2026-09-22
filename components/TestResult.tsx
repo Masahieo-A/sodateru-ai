@@ -2,6 +2,7 @@
 
 import { GrammarUnit, TestResult as TR } from "@/types";
 import { cn } from "@/lib/utils";
+import type { AiLearningEvidence, MasteryEvidence } from "@/types/learning";
 
 type Props = {
   result: TR;
@@ -9,6 +10,9 @@ type Props = {
   onRetry: () => void;
   /** 練習中に“あえて1問間違える”演出が発動した場合 true（事後開示する） */
   forceStumbleUsed?: boolean;
+  /** Structured evidence from the learner checkpoint. Optional for legacy result views. */
+  aiLearningEvidence?: AiLearningEvidence[];
+  masteryEvidence?: MasteryEvidence[];
 };
 
 function ScoreRing({
@@ -42,6 +46,8 @@ export function TestResult({
   unit,
   onRetry,
   forceStumbleUsed = false,
+  aiLearningEvidence = [],
+  masteryEvidence = [],
 }: Props) {
   const testRate = Math.round(
     (result.ai_correct_count / result.total_questions) * 100
@@ -55,6 +61,28 @@ export function TestResult({
 
   return (
     <div className="space-y-6">
+      {masteryEvidence.length > 0 && (
+        <div className="bg-green-50 rounded-2xl border border-green-100 shadow-sm p-5">
+          <h2 className="text-lg font-black text-green-900 mb-1">✅ 自分で解けたこと</h2>
+          <p className="text-sm text-green-800 mb-4">
+            独立チェック正答: {masteryEvidence.filter((e) => e.isCorrect).length}/{masteryEvidence.length}問
+          </p>
+          <div className="space-y-2">
+            {masteryEvidence.map((e) => (
+              <div key={e.id} className={cn("rounded-xl border px-3 py-2.5", e.isCorrect ? "bg-white border-green-200" : "bg-amber-50 border-amber-200")}>
+                <div className="flex items-start gap-2">
+                  <span aria-hidden="true">{e.isCorrect ? "✅" : "⬜"}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800">{e.topicRef.topic}</p>
+                    <p className="text-xs text-gray-600 mt-1">{e.checkQuestion}</p>
+                    <p className="text-xs text-gray-500 mt-1">あなたの答え: {e.selectedAnswer} {e.isCorrect ? "（正解）" : `（正解: ${e.expectedAnswer}）`}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* スコアヘッダー */}
       <div
         className={cn(
@@ -62,20 +90,23 @@ export function TestResult({
           scoreColor
         )}
       >
-        <div className="text-sm font-medium opacity-90 mb-1">教え方スコア</div>
+        <div className="text-sm font-medium opacity-90 mb-1">AIに伝わったこと／教え方スコア</div>
         <div className="text-6xl font-black mb-2">{result.teaching_score}</div>
         <div className="text-sm opacity-90">/ 100点</div>
         <div className="mt-3 text-sm bg-white/20 rounded-lg px-3 py-1 inline-block">
           AIのテスト正答率: {result.ai_correct_count}/{result.total_questions}問 （
           {testRate}%）
         </div>
+        {aiLearningEvidence.length > 0 && (
+          <div className="mt-2 text-xs opacity-90">AIの理解確認: {aiLearningEvidence.length}トピック</div>
+        )}
       </div>
 
-      {/* スコア詳細（重みは lib/gemini.ts の SCORE_WEIGHTS と一致させること） */}
+      {/* AIに伝わったことの内訳（重みは lib/gemini.ts と一致） */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-bold text-gray-800 mb-1">📊 スコア内訳</h3>
+        <h3 className="font-bold text-gray-800 mb-1">📊 AIに伝わったことの内訳</h3>
         <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-          教え方スコア ＝ テスト正答率×40％ ＋ 網羅性×30％ ＋ 正確性×20％ ＋
+            教え方スコア ＝ AIのテスト正答率×40％ ＋ 網羅性×30％ ＋ 正確性×20％ ＋
           わかりやすさ×10％
         </p>
         <div className="grid grid-cols-4 gap-3 text-center">
@@ -191,7 +222,7 @@ export function TestResult({
           result.learningDiagnosis.weakPoints.length > 0 ||
           result.learningDiagnosis.suggestion) && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="font-bold text-gray-800 mb-4">🩺 学習診断</h3>
+            <h3 className="font-bold text-gray-800 mb-4">🩺 教え方の診断</h3>
             <div className="space-y-4">
               {result.learningDiagnosis.strongPoints.length > 0 && (
                 <div>

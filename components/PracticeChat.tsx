@@ -10,6 +10,8 @@ type Bubble =
 
 type Props = {
   unit: GrammarUnit;
+  participantId: string;
+  sessionId: string;
   question: MCQuestion;
   questionIndex: number; // 0-based
   totalQuestions: number;
@@ -38,6 +40,8 @@ type Props = {
 
 export function PracticeChat({
   unit,
+  participantId,
+  sessionId,
   question,
   questionIndex,
   totalQuestions,
@@ -81,6 +85,8 @@ export function PracticeChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unit_id: unit.id,
+          participant_id: participantId,
+          session_id: sessionId,
           question_id: question.id,
           dialogue: convoRef.current,
           is_followup: isFollowup,

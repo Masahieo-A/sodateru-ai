@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { GRAMMAR_UNITS } from "@/lib/questions";
+import { UNIT_CATALOG } from "@/lib/unit-catalog";
 import { Session, Student, SessionStatus } from "@/types";
 
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
@@ -53,7 +53,7 @@ export default function SessionManagePage({
   }, [router]);
 
   // セッション詳細 + 生徒一覧を取得し、定期的に再取得する。
-  // ブラウザから Supabase へ直接接続すると、*.supabase.co が遮断された
+  // D1 へはブラウザから直接接続せず、認証済みの自サイト API 経由で取得する。
   // ネットワーク（学校のフィルタ等）で "TypeError: Failed to fetch" になるため、
   // 自サイトの API 経由で取得し、Realtime の代わりにポーリングで更新する。
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function SessionManagePage({
   };
 
   const unitName = (id: string) =>
-    GRAMMAR_UNITS.find((u) => u.id === id)?.name ?? id;
+    UNIT_CATALOG.find((unit) => unit.id === id)?.title ?? id;
 
   if (!authed) return null;
 

@@ -1,44 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  TEACHER_COOKIE,
-  teacherSessionToken,
-  isTeacherAuthorized,
-} from "@/lib/supabase-server";
+import { getSessionUser, revokeSession } from "@/lib/auth/session";
 
-const MAX_AGE = 60 * 60 * 8; // 8時間
+export const runtime = "edge";
 
-function cookieOptions(maxAge: number) {
-  return {
-    httpOnly: true,
-    sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge,
-  };
-}
-
-// POST /api/teacher — 教員パスワード認証（成功時に httpOnly Cookie を発行）
+// POST /api/teacher — Googleログイン済みユーザーの教員権限を確認
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
-  if (!password || password !== process.env.TEACHER_PASSWORD) {
-    return NextResponse.json(
-      { error: "パスワードが正しくありません" },
-      { status: 401 }
-    );
-  }
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(TEACHER_COOKIE, teacherSessionToken(), cookieOptions(MAX_AGE));
-  return res;
+  const user = await getSessionUser(req);
+  if (!user) return NextResponse.json({ error: "Googleログインが必要です" }, { status: 401 });
+  if (user.role !== "teacher") return NextResponse.json({ error: "教員権限が必要です" }, { status: 403 });
+  return NextResponse.json({ ok: true, user });
 }
 
 // GET /api/teacher — 現在ログイン中かを返す（クライアントのリダイレクト判定用）
 export async function GET(req: NextRequest) {
-  return NextResponse.json({ authenticated: isTeacherAuthorized(req) });
+  const user = await getSessionUser(req);
+  return NextResponse.json({ authenticated: Boolean(user), user: user ?? null, teacher: user?.role === "teacher" });
 }
 
 // DELETE /api/teacher — ログアウト（Cookie を失効させる）
-export async function DELETE() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(TEACHER_COOKIE, "", cookieOptions(0));
-  return res;
+export async function DELETE(req: NextRequest) {
+  await revokeSession(req);
+  return NextResponse.json({ ok: true });
 }

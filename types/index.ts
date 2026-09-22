@@ -1,5 +1,5 @@
 // ============================================================
-// Supabase DB 型
+// D1 persistence / API 型
 // ============================================================
 
 export type SessionStatus = "waiting" | "active" | "ended";
@@ -11,6 +11,19 @@ export type Session = {
   name: string;
   status: SessionStatus;
   created_at: string;
+  learning_config?: LearningConfig | null;
+  /** Active curriculum projection returned only by the authenticated session API. */
+  unit?: GrammarUnit;
+};
+
+export type LearningConfig = {
+  curriculum_id: string | null;
+  curriculum_version: number | null;
+  selected_knowledge_ids: string[];
+  prior_knowledge_ids: string[];
+  sampling_policy: Record<string, unknown>;
+  confirmation_policy: Record<string, unknown>;
+  immutable_snapshot: Record<string, unknown>;
 };
 
 export type Student = {
@@ -21,11 +34,15 @@ export type Student = {
   attempt_count: number;
   last_attempt_at: string | null;
   created_at: string;
+  user_id?: string | null;
+  account?: { id: string | null; email: string | null; name: string; google_sub: string | null };
+  attempts?: Array<Record<string, unknown>>;
+  evidence?: Array<Record<string, unknown>>;
 };
 
 export type Attempt = {
   id: string;
-  student_id: string;
+  participant_id: string;
   session_id: string;
   teaching_score: number;
   ai_correct_count: number;
@@ -50,6 +67,8 @@ export type TeachingGuide = {
    * ※コピペで完成しないよう、抽象的な視点で示す
    */
   thinkingPrompts: string[];
+  /** Stable IDs for coverage topics; legacy units fall back to a unit-scoped ID. */
+  knowledgeTopicIds?: string[];
 };
 
 // ============================================================

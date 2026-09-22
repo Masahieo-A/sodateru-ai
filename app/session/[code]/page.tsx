@@ -11,7 +11,7 @@ import { LearningSummary } from "@/components/LearningSummary";
 import { SolvingDisplay } from "@/components/SolvingDisplay";
 import { TestResult } from "@/components/TestResult";
 import { ErrorRetry } from "@/components/ErrorRetry";
-import { getUnitById } from "@/lib/questions";
+import { AiUnderstandingCheck } from "@/components/AiUnderstandingCheck";
 import { loadParticipant, clearParticipant } from "@/lib/participant";
 import type {
   Session,
@@ -20,6 +20,7 @@ import type {
   LessonMessage,
   TestResult as TR,
 } from "@/types";
+import type { AiLearningEvidence, MasteryEvidence } from "@/types/learning";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -29,6 +30,7 @@ type LessonStep =
   | "explain" // 基礎説明
   | "practice" // 練習問題で対話
   | "summary" // 学習内容の把握
+  | "understanding-check" // AIの推測を確認し、独立問題で別に確かめる
   | "test-loading" // テスト評価中
   | "test-solving" // AIがテストを解くアニメ
   | "result"; // スコア表示
@@ -183,6 +185,8 @@ export default function SessionPage({
   // “あえて間違える”演出が実際に発動したか（結果画面で事後開示するために保持）
   const [didForceStumble, setDidForceStumble] = useState(false);
   const [testResult, setTestResult] = useState<TR | null>(null);
+  const [aiLearningEvidence, setAiLearningEvidence] = useState<AiLearningEvidence[]>([]);
+  const [masteryEvidence, setMasteryEvidence] = useState<MasteryEvidence[]>([]);
   // 冪等化キーの接頭辞。レッスン実行（挑戦）ごとに一意で、
   // 同一実行内の再試行・戻る操作ではAI応答が二重生成されない
   const [lessonRunId, setLessonRunId] = useState(() => crypto.randomUUID());
@@ -194,8 +198,7 @@ export default function SessionPage({
   // ============================================================
   // 生徒一覧の再フェッチ
   // ============================================================
-  // Supabase へはブラウザから直接接続せず自サイトの API 経由で取得する
-  // （*.supabase.co が遮断されたネットワークで "Failed to fetch" になるため）
+  // D1 へはブラウザから直接接続せず、認証済みの自サイト API 経由で取得する。
   const fetchStudents = useCallback(async (sessionCode: string) => {
     const res = await fetch(`/api/sessions/${sessionCode}/students`, { cache: "no-store" });
     if (!res.ok) return;
@@ -245,7 +248,7 @@ export default function SessionPage({
       const sessionData: Session = await res.json();
       setSession(sessionData);
 
-      const unitData = getUnitById(sessionData.unit_id);
+      const unitData = sessionData.unit;
       if (!unitData) {
         setInitError("単元情報が見つかりませんでした");
         setIsInitializing(false);
@@ -327,6 +330,8 @@ export default function SessionPage({
           dialogue,
           student_id: studentId,
           session_id: sessionId,
+          ai_learning_evidence: aiLearningEvidence,
+          mastery_evidence: masteryEvidence,
           // 同一実行・同一対話内容なら同じキー → 再試行で二重採点・二重保存しない
           attempt_id: `${lessonRunId}:test:d${dialogue.length}`,
         }),
@@ -341,6 +346,12 @@ export default function SessionPage({
     }
   };
 
+  const handleUnderstandingComplete = (ai: AiLearningEvidence[], mastery: MasteryEvidence[]) => {
+    setAiLearningEvidence(ai);
+    setMasteryEvidence(mastery);
+    setLessonStep("summary");
+  };
+
   // 最初からやり直す（教え方を改善して再挑戦）
   const handleRetry = () => {
     setDialogue([]);
@@ -348,6 +359,8 @@ export default function SessionPage({
     setInitialWrongCount(0);
     setDidForceStumble(false);
     setTestResult(null);
+    setAiLearningEvidence([]);
+    setMasteryEvidence([]);
     setError(null);
     // 新しい挑戦なので冪等化キーの接頭辞も切り替える（前回のキャッシュを引かない）
     setLessonRunId(crypto.randomUUID());
@@ -498,6 +511,8 @@ export default function SessionPage({
           {lessonStep === "cold-open" && (
             <ColdOpenChat
               unit={unit}
+              participantId={studentId!}
+              sessionId={sessionId!}
               onAppend={appendDialogue}
               onProceed={() => setLessonStep("explain")}
               attemptScope={lessonRunId}
@@ -512,7 +527,12 @@ export default function SessionPage({
                 onSubmit={handleExplainSubmit}
                 isLoading={false}
               />
-              <TeacherHintPanel unit={unit} dialogue={dialogue} />
+              <TeacherHintPanel
+                unit={unit}
+                participantId={studentId!}
+                sessionId={sessionId!}
+                dialogue={dialogue}
+              />
             </>
           )}
 
@@ -522,6 +542,8 @@ export default function SessionPage({
               <PracticeChat
                 key={practiceIndex}
                 unit={unit}
+                participantId={studentId!}
+                sessionId={sessionId!}
                 question={currentQuestion}
                 questionIndex={practiceIndex}
                 totalQuestions={unit.practiceQuestions.length}
@@ -542,6 +564,8 @@ export default function SessionPage({
               <TeacherHintPanel
                 key={`hint-${practiceIndex}`}
                 unit={unit}
+                participantId={studentId!}
+                sessionId={sessionId!}
                 dialogue={dialogue}
                 questionId={currentQuestion.id}
               />
@@ -553,10 +577,20 @@ export default function SessionPage({
             <LearningSummary
               unit={unit}
               dialogue={dialogue}
-              studentId={studentId}
-              onStartTest={handleStartTest}
+              studentId={studentId!}
+              sessionId={sessionId!}
+              onStartTest={aiLearningEvidence.length > 0 ? handleStartTest : () => setLessonStep("understanding-check")}
               onBack={() => setLessonStep("practice")}
               attemptScope={lessonRunId}
+            />
+          )}
+
+          {lessonStep === "understanding-check" && (
+            <AiUnderstandingCheck
+              unit={unit}
+              dialogue={dialogue}
+              storageScope={{ sessionId: sessionId!, participantId: studentId! }}
+              onComplete={handleUnderstandingComplete}
             />
           )}
 
@@ -587,6 +621,8 @@ export default function SessionPage({
                 unit={unit}
                 onRetry={handleRetry}
                 forceStumbleUsed={didForceStumble}
+                aiLearningEvidence={aiLearningEvidence}
+                masteryEvidence={masteryEvidence}
               />
               {studentId && (
                 <RankingList students={students} currentStudentId={studentId} />

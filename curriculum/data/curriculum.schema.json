@@ -1,0 +1,484 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "curriculum.schema.json",
+  "title": "育てるAI curriculum",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "curriculum",
+    "sources",
+    "rubricCriteria",
+    "prerequisiteKnowledge",
+    "units",
+    "knowledge",
+    "questions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": [
+        "sourceId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "pdfPages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "printedPages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "pages": {
+          "type": "string"
+        },
+        "locator": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "curriculum": {
+      "type": "object",
+      "required": [
+        "id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rubricCriteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prerequisiteKnowledge": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "title",
+          "order",
+          "sourceRefs",
+          "knowledgeIds",
+          "questionCounts",
+          "sampling"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/sourceRef"
+            }
+          },
+          "knowledgeIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "questionCounts": {
+            "type": "object",
+            "required": [
+              "total",
+              "practice",
+              "assessment"
+            ],
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": 12
+              },
+              "practice": {
+                "type": "integer"
+              },
+              "assessment": {
+                "type": "integer"
+              }
+            }
+          },
+          "sampling": {
+            "type": "object",
+            "required": [
+              "practiceCount",
+              "testCount",
+              "perKnowledgeMinimums",
+              "avoidRepeatingQuestionIds",
+              "deterministicSeedStrategy"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "practiceCount": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "testCount": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "perKnowledgeMinimums": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "knowledgeId",
+                    "practice",
+                    "assessment"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "knowledgeId": {
+                      "$ref": "#/$defs/id"
+                    },
+                    "practice": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "assessment": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              },
+              "avoidRepeatingQuestionIds": {
+                "const": true
+              },
+              "deterministicSeedStrategy": {
+                "const": "session-unit-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "knowledge": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "name",
+          "description",
+          "prerequisites",
+          "sourceRefs"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "designId": {
+            "type": "string"
+          },
+          "unitId": {
+            "$ref": "#/$defs/id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decisionCriteria": {
+            "type": "string"
+          },
+          "prerequisites": {
+            "type": "object",
+            "required": [
+              "prerequisiteKnowledgeIds",
+              "knowledgeIds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "prerequisiteKnowledgeIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/id"
+                }
+              },
+              "knowledgeIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/id"
+                }
+              }
+            }
+          },
+          "commonMisconceptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/sourceRef"
+            }
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "unitId",
+          "knowledgeIds",
+          "prompt",
+          "choices",
+          "correctLabel",
+          "rationale",
+          "difficulty",
+          "eligibility",
+          "misconceptions",
+          "rubricCriteriaIds",
+          "sourceRefs",
+          "answerAmbiguity",
+          "origin"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "unitId": {
+            "$ref": "#/$defs/id"
+          },
+          "knowledgeIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "choices": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "text"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "enum": [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "correctLabel": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "difficulty": {
+            "enum": [
+              "basic",
+              "standard",
+              "advanced"
+            ]
+          },
+          "eligibility": {
+            "enum": [
+              "practice",
+              "assessment",
+              "both"
+            ]
+          },
+          "misconceptions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "choiceLabel",
+                "description"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "choiceLabel": {
+                  "enum": [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "rubricCriteriaIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "sourceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/sourceRef"
+            }
+          },
+          "answerAmbiguity": {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "unique"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          },
+          "origin": {
+            "const": "original"
+          }
+        }
+      }
+    }
+  }
+}

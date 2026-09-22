@@ -14,8 +14,7 @@ import {
   TestAnswer,
   TopicCoverage,
 } from "@/types";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { getEnv } from "@/lib/db";
 
 // 軽量・低レイテンシのモデル。2.5-flash は隠れた思考トークンで遅くなるため、
 // 既定でほぼ思考しない flash-lite を使う（応答が約2秒台に短縮される）。
@@ -70,6 +69,9 @@ async function callGeminiWithRetry<T>(
   prompt: string,
   opts: GeminiCallOptions
 ): Promise<T> {
+  const apiKey = getEnv().GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
+  const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: MODEL,
     generationConfig: {
@@ -609,6 +611,7 @@ ${formatDialogue(dialogue)}
   "gaps": ["まだあいまい・不足していると感じることを箇条書きで（なければ空配列）"],
   "summary": "（全体の総括コメント。日本語で2〜3文。先生への感謝や、テストへの意気込みなど生徒らしく）"
 }
+
 `;
 
   return callGeminiWithRetry<LearningSummary>(prompt, {
@@ -616,6 +619,29 @@ ${formatDialogue(dialogue)}
     temperature: 0.3,
     responseSchema: summarySchema,
   });
+}
+
+const inferenceSchema: ResponseSchema = {
+  type: SchemaType.OBJECT,
+  properties: { inferredRule: { type: SchemaType.STRING } },
+  required: ["inferredRule"],
+};
+
+/** Produce a concise, reviewable rule. This is evidence of an inference, not mastery. */
+export async function inferLearningRule(
+  unit: GrammarUnit,
+  topic: string,
+  dialogue: string,
+  correction?: string
+): Promise<string> {
+  const correctionText = correction ? `\n先生の修正:\n${correction}` : "";
+  const prompt = `あなたは生徒役AIです。単元「${unit.name}」の学習トピック「${topic}」について、先生との対話から理解したルールを日本語で1〜2文に整理してください。答えを断定しすぎず、先生が確認・修正できる具体的な表現にしてください。${correctionText}\n対話:\n${dialogue}`;
+  const result = await callGeminiWithRetry<{ inferredRule: string }>(prompt, {
+    maxOutputTokens: 300,
+    temperature: 0,
+    responseSchema: inferenceSchema,
+  });
+  return result.inferredRule;
 }
 
 // ============================================================

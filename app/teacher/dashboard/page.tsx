@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GRAMMAR_UNITS } from "@/lib/questions";
+import {
+  CURRICULUM_ID,
+  CURRICULUM_VERSION,
+  UNIT_CATALOG,
+  type UnitCatalogEntry,
+} from "@/lib/unit-catalog";
 import { Session, SessionStatus } from "@/types";
 
 function StatusBadge({ status }: { status: SessionStatus }) {
@@ -19,13 +24,21 @@ function StatusBadge({ status }: { status: SessionStatus }) {
   );
 }
 
+function knowledgeTopicId(unit: UnitCatalogEntry, index: number): string {
+  return unit.knowledgeTopics[index]?.id ?? `${unit.id}.legacy-topic.${index}`;
+}
+
 export default function TeacherDashboardPage() {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
 
   // フォーム
   const [sessionName, setSessionName] = useState("");
-  const [unitId, setUnitId] = useState(GRAMMAR_UNITS[0].id);
+  const [unitId, setUnitId] = useState(UNIT_CATALOG[0].id);
+  const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<string[]>(
+    UNIT_CATALOG[0].knowledgeTopics.map((_, index) => knowledgeTopicId(UNIT_CATALOG[0], index)),
+  );
+  const [priorKnowledgeIds, setPriorKnowledgeIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -85,7 +98,20 @@ export default function TeacherDashboardPage() {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_id: unitId, name: sessionName.trim() }),
+        body: JSON.stringify({
+          unit_id: unitId,
+          name: sessionName.trim(),
+          curriculum_id: CURRICULUM_ID,
+          curriculum_version: CURRICULUM_VERSION,
+          selected_knowledge_ids: selectedKnowledgeIds,
+          prior_knowledge_ids: priorKnowledgeIds.filter((id) => selectedKnowledgeIds.includes(id)),
+          sampling_policy: {
+            mode: "configured_scope",
+            practiceCount: selectedUnit?.practiceCount ?? 0,
+            testCount: selectedUnit?.testCount ?? 0,
+          },
+          confirmation_policy: { require_evidence: true },
+        }),
       });
       if (res.status === 401) {
         router.replace("/teacher");
@@ -113,7 +139,8 @@ export default function TeacherDashboardPage() {
   if (!authed) return null;
 
   const unitName = (id: string) =>
-    GRAMMAR_UNITS.find((u) => u.id === id)?.name ?? id;
+    UNIT_CATALOG.find((unit) => unit.id === id)?.title ?? id;
+  const selectedUnit = UNIT_CATALOG.find((unit) => unit.id === unitId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -159,18 +186,51 @@ export default function TeacherDashboardPage() {
                 </label>
                 <select
                   value={unitId}
-                  onChange={(e) => setUnitId(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setUnitId(next);
+                    const nextUnit = UNIT_CATALOG.find((unit) => unit.id === next);
+                    setSelectedKnowledgeIds(nextUnit?.knowledgeTopics.map((topic) => topic.id) ?? []);
+                    setPriorKnowledgeIds([]);
+                  }}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white"
                   disabled={isCreating}
                 >
-                  {GRAMMAR_UNITS.map((u) => (
+                  {UNIT_CATALOG.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.name}
+                      {u.title}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
+
+            <fieldset className="border-t border-gray-100 pt-4">
+              <legend className="text-sm font-bold text-gray-700 mb-2">今回扱う知識トピック</legend>
+              <p className="text-xs text-gray-400 mb-3">「既習」にすると、AIへの確認時に既に知っている前提として扱います。</p>
+              <div className="space-y-2">
+                {(selectedUnit?.knowledgeTopics ?? []).map((topic, index) => {
+                  const id = selectedUnit ? knowledgeTopicId(selectedUnit, index) : `${unitId}.legacy-topic.${index}`;
+                  const selected = selectedKnowledgeIds.includes(id);
+                  const prior = priorKnowledgeIds.includes(id);
+                  return (
+                    <div key={id} className="flex items-center gap-3 text-sm">
+                      <label className="flex items-center gap-2 flex-1 text-gray-700">
+                        <input type="checkbox" checked={selected} onChange={(event) => {
+                          setSelectedKnowledgeIds((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id));
+                          if (!event.target.checked) setPriorKnowledgeIds((current) => current.filter((value) => value !== id));
+                        }} />
+                        {topic.label}
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <input type="checkbox" checked={prior} disabled={!selected} onChange={(event) => setPriorKnowledgeIds((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />
+                        既習
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
 
             {createError && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">

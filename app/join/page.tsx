@@ -52,6 +52,10 @@ function JoinForm() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          router.push(`/api/auth/google?redirect=${encodeURIComponent(`/join?code=${code}`)}`);
+          return;
+        }
         throw new Error(data.error ?? "参加に失敗しました");
       }
 

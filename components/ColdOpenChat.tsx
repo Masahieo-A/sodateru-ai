@@ -10,6 +10,8 @@ type Bubble =
 
 type Props = {
   unit: GrammarUnit;
+  participantId: string;
+  sessionId: string;
   /** 親のレッスン対話へ1メッセージ追記 */
   onAppend: (m: LessonMessage) => void;
   /** 基礎説明（説明ビルダー）へ進む */
@@ -83,7 +85,14 @@ function KnowledgeContract({ unit }: { unit: GrammarUnit }) {
  * 生徒の最初の入力を「説明の作文」ではなく「質問への返答」にすることで、
  * 0→1のハードルを下げる（教える必然性も先に体感させる）。
  */
-export function ColdOpenChat({ unit, onAppend, onProceed, attemptScope }: Props) {
+export function ColdOpenChat({
+  unit,
+  participantId,
+  sessionId,
+  onAppend,
+  onProceed,
+  attemptScope,
+}: Props) {
   const question = unit.practiceQuestions[0];
 
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -112,6 +121,8 @@ export function ColdOpenChat({ unit, onAppend, onProceed, attemptScope }: Props)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unit_id: unit.id,
+          participant_id: participantId,
+          session_id: sessionId,
           question_id: question.id,
           dialogue: convoRef.current,
           is_followup: isFollowup,
