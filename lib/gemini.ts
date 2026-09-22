@@ -26,6 +26,8 @@ const MODEL = "gemini-2.5-flash-lite";
 // Gemini呼び出しを同時数本に抑えて 429（RPM制限）を踏みにくくする。
 // ============================================================
 const MAX_CONCURRENT_CALLS = 4;
+const MAX_QUEUED_CALLS = 8;
+const QUEUE_TIMEOUT_MS = 5_000;
 let activeCalls = 0;
 const callWaiters: (() => void)[] = [];
 
@@ -34,12 +36,22 @@ function acquireSlot(): Promise<void> {
     activeCalls++;
     return Promise.resolve();
   }
-  return new Promise((resolve) =>
-    callWaiters.push(() => {
+  if (callWaiters.length >= MAX_QUEUED_CALLS) {
+    return Promise.reject(new Error("Gemini call queue is full"));
+  }
+  return new Promise((resolve, reject) => {
+    const waiter = () => {
+      clearTimeout(timeout);
       activeCalls++;
       resolve();
-    })
-  );
+    };
+    const timeout = setTimeout(() => {
+      const index = callWaiters.indexOf(waiter);
+      if (index >= 0) callWaiters.splice(index, 1);
+      reject(new Error("Gemini call queue timed out"));
+    }, QUEUE_TIMEOUT_MS);
+    callWaiters.push(waiter);
+  });
 }
 
 function releaseSlot(): void {
@@ -49,11 +61,12 @@ function releaseSlot(): void {
 
 // ============================================================
 // callGeminiWithRetry：全Gemini呼び出しの共通ラッパー
-// - リトライ最大3回、指数バックオフ＋ジッター（0.5s → 1.5s → 4s）
+// - リトライは最大1回（合計2試行）。一時エラー時の回復性は残しつつ、
+//   誤作動時の重複課金を上限付きにする。
 // - 対象: 429 / 5xx / タイムアウト / ネットワーク / JSONパース失敗
 // - responseSchema で構造化出力を強制し、パース失敗自体を減らす
 // ============================================================
-const RETRY_DELAYS_MS = [500, 1500, 4000];
+const RETRY_DELAYS_MS = [750];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -91,7 +104,7 @@ async function callGeminiWithRetry<T>(
     await acquireSlot();
     try {
       const result = await model.generateContent(prompt, {
-        timeout: opts.timeoutMs ?? 30_000,
+        timeout: opts.timeoutMs ?? 25_000,
       });
       const text = result.response.text();
       try {
@@ -115,16 +128,41 @@ async function callGeminiWithRetry<T>(
   throw lastError;
 }
 
-/** dialogue をプロンプト用テキストに整形 */
-function formatDialogue(dialogue: LessonMessage[]): string {
+type DialogueFormatOptions = {
+  /** 練習応答など、直近の文脈だけで足りる呼び出し用。 */
+  maxMessages?: number;
+  maxChars?: number;
+};
+
+/** dialogue をプロンプト用テキストに整形し、完全重複を除く。 */
+function formatDialogue(
+  dialogue: LessonMessage[],
+  options: DialogueFormatOptions = {}
+): string {
   if (dialogue.length === 0) return "（まだ何も教わっていない）";
-  return dialogue
-    .map((m) =>
-      m.role === "teacher"
-        ? `【先生（教える人）】\n${m.content}`
-        : `【あなた（生徒AI）の発言】\n${m.content}`
-    )
-    .join("\n\n");
+
+  const unique = dialogue.filter(
+    (message, index) =>
+      index === 0 ||
+      message.role !== dialogue[index - 1].role ||
+      message.content !== dialogue[index - 1].content
+  );
+  const maxMessages = options.maxMessages ?? unique.length;
+  const selected = unique.slice(-maxMessages);
+  const lines: string[] = [];
+  let usedChars = 0;
+  const maxChars = options.maxChars ?? Number.POSITIVE_INFINITY;
+
+  // 最新のやりとりを優先し、メッセージの途中で切らない。
+  for (let index = selected.length - 1; index >= 0; index--) {
+    const message = selected[index];
+    const line = `${message.role === "teacher" ? "先生" : "生徒AI"}: ${message.content}`;
+    if (lines.length > 0 && usedChars + line.length > maxChars) break;
+    lines.unshift(line);
+    usedChars += line.length;
+  }
+
+  return lines.join("\n");
 }
 
 /** 4択を文字列に整形 */
@@ -254,7 +292,7 @@ ${targets.map((i) => `${i}: ${allTopics[i]}`).join("\n")}
   const raw = await callGeminiWithRetry<{
     coverage: { topic_index: number; covered: boolean; evidence?: string }[];
   }>(prompt, {
-    maxOutputTokens: 800,
+    maxOutputTokens: 700,
     temperature: 0, // 判定はぶれさせない
     responseSchema: coverageSchema,
   });
@@ -458,7 +496,7 @@ ${coverage.map((t) => `- ${t}`).join("\n")}
 ${phase}
 
 【これまでの先生とのやりとり】
-${formatDialogue(dialogue)}
+${formatDialogue(dialogue, { maxMessages: 10, maxChars: 6_000 })}
 
 【取り組む問題】
 ${question.sentence}
@@ -472,7 +510,7 @@ ${formatChoices(question)}
 }`;
 
   const turn = await callGeminiWithRetry<PracticeTurn>(prompt, {
-    maxOutputTokens: 500,
+    maxOutputTokens: 320,
     temperature: 0.3,
     responseSchema: practiceTurnSchema,
   });
@@ -558,7 +596,7 @@ ${
 }
 
 【これまでの先生（生徒）と生徒役AIのやりとり】
-${formatDialogue(dialogue)}
+${formatDialogue(dialogue, { maxMessages: 12, maxChars: 8_000 })}
 ${
   question
     ? `\n【いま詰まっている問題】\n${question.sentence}\n${formatChoices(question)}`
@@ -572,7 +610,7 @@ ${
 `;
 
   return callGeminiWithRetry<TeachingHint>(prompt, {
-    maxOutputTokens: 500,
+    maxOutputTokens: 256,
     temperature: 0.3,
     responseSchema: hintSchema,
   });
@@ -615,7 +653,7 @@ ${formatDialogue(dialogue)}
 `;
 
   return callGeminiWithRetry<LearningSummary>(prompt, {
-    maxOutputTokens: 800,
+    maxOutputTokens: 700,
     temperature: 0.3,
     responseSchema: summarySchema,
   });
@@ -635,9 +673,11 @@ export async function inferLearningRule(
   correction?: string
 ): Promise<string> {
   const correctionText = correction ? `\n先生の修正:\n${correction}` : "";
-  const prompt = `あなたは生徒役AIです。単元「${unit.name}」の学習トピック「${topic}」について、先生との対話から理解したルールを日本語で1〜2文に整理してください。答えを断定しすぎず、先生が確認・修正できる具体的な表現にしてください。${correctionText}\n対話:\n${dialogue}`;
+  // 推論確認は直近の説明への応答なので、過去全文の再送を避ける。
+  const recentDialogue = dialogue.slice(-6_000);
+  const prompt = `あなたは生徒役AIです。単元「${unit.name}」の学習トピック「${topic}」について、先生との対話から理解したルールを日本語で1〜2文に整理してください。答えを断定しすぎず、先生が確認・修正できる具体的な表現にしてください。${correctionText}\n対話:\n${recentDialogue}`;
   const result = await callGeminiWithRetry<{ inferredRule: string }>(prompt, {
-    maxOutputTokens: 300,
+    maxOutputTokens: 192,
     temperature: 0,
     responseSchema: inferenceSchema,
   });
@@ -796,7 +836,7 @@ learningDiagnosis は、生徒（先生役のユーザー）が「次に何を�
       suggestion?: string;
     };
   }>(prompt, {
-    maxOutputTokens: 1500,
+    maxOutputTokens: 1200,
     temperature: 0, // 採点はぶれさせない（ランキングの公平性）
     responseSchema: testSchema,
   });
