@@ -32,6 +32,24 @@ for (const question of source.questions) {
   questionByUnit.set(question.unitId, list);
 }
 
+function collectPrerequisiteKnowledgeIds(unit) {
+  const unitKnowledgeIds = new Set(unit.knowledgeIds);
+  const collected = [];
+  const seen = new Set();
+  const visit = (id) => {
+    if (seen.has(id) || unitKnowledgeIds.has(id)) return;
+    seen.add(id);
+    const item = knowledgeById.get(id);
+    if (!item) return;
+    collected.push(id);
+    for (const dependency of item.prerequisites?.knowledgeIds ?? []) visit(dependency);
+  };
+  for (const id of unit.knowledgeIds) {
+    for (const dependency of knowledgeById.get(id)?.prerequisites?.knowledgeIds ?? []) visit(dependency);
+  }
+  return collected;
+}
+
 function eligible(question, kind) {
   return kind === "practice" ? question.eligibility !== "assessment" : question.eligibility !== "practice";
 }
@@ -82,6 +100,7 @@ const units = source.units.map((unit) => {
       sourceRefDetails: sourceDetails(item.sourceRefs),
     };
   });
+  const prerequisiteKnowledgeIds = collectPrerequisiteKnowledgeIds(unit);
   const toQuestion = (q) => ({
     id: q.id,
     type: "multiple-choice",
@@ -103,7 +122,23 @@ const units = source.units.map((unit) => {
     id: unit.id,
     title: unit.title,
     description: unit.summary,
-    prerequisiteKnowledge: [...new Set(unit.knowledgeIds.flatMap((id) => knowledgeById.get(id)?.prerequisites?.prerequisiteKnowledgeIds ?? []))].map((id) => {
+    prerequisiteKnowledge: [
+      ...new Set([
+        ...unit.knowledgeIds.flatMap((id) => knowledgeById.get(id)?.prerequisites?.prerequisiteKnowledgeIds ?? []),
+        ...prerequisiteKnowledgeIds,
+      ]),
+    ].map((id) => {
+      const knowledgeItem = knowledgeById.get(id);
+      if (knowledgeItem) {
+        return {
+          id: knowledgeItem.id,
+          label: knowledgeItem.name,
+          description: knowledgeItem.description,
+          prerequisites: knowledgeItem.prerequisites?.knowledgeIds ?? [],
+          sourceRefs: sourceIdList(knowledgeItem.sourceRefs),
+          sourceRefDetails: sourceDetails(knowledgeItem.sourceRefs),
+        };
+      }
       const item = prerequisiteById.get(id);
       if (!item) throw new Error(`${unit.id}: unknown prerequisite ${id}`);
       return { id: item.id, label: item.name, description: item.description };
