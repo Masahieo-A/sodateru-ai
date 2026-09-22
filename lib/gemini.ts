@@ -16,9 +16,8 @@ import {
 } from "@/types";
 import { getEnv } from "@/lib/db";
 
-// 軽量・低レイテンシのモデル。2.5-flash は隠れた思考トークンで遅くなるため、
-// 既定でほぼ思考しない flash-lite を使う（応答が約2秒台に短縮される）。
-const MODEL = "gemini-2.5-flash-lite";
+// 教室内の応答速度と費用を重視して Flash-Lite を使う。
+const MODEL = "gemini-3.5-flash-lite";
 
 // ============================================================
 // 同時実行制御（簡易セマフォ）

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { practiceChat } from "@/lib/gemini";
-import { getUnitById } from "@/lib/questions";
 import {
   cacheAiResponse,
   expireAiResponse,
@@ -8,43 +7,14 @@ import {
 } from "@/lib/ai-cache";
 import { sha256 } from "@/lib/auth/crypto";
 import { authorizeLessonScope, boundedDialogue } from "@/lib/learning/access";
-import type { LessonMessage, MCQuestion, PracticeTurn } from "@/types";
+import { publicAiError } from "@/lib/learning/ai-errors";
+import type { LessonMessage, PracticeTurn } from "@/types";
 
-// Gemini呼び出しはリトライ込みで10秒を超えうるため延長（Vercel）
+// Gemini呼び出しはリトライ込みで10秒を超えうるため延長。
 export const maxDuration = 60;
-
-/**
- * リトライしても失敗した場合の定型応答（フォールバック）。
- * 授業が止まることだけは防ぐ。誤答側に倒して「教える契機」は保つ。
- */
-function fallbackTurn(question: MCQuestion, isFollowup: boolean): PracticeTurn {
-  if (isFollowup) {
-    return {
-      message:
-        "ありがとうございます…！ごめんなさい、いま頭が混み合っていてうまく整理できませんでした。もう一度だけ、いちばん大事なポイントを短く教えてもらえますか？",
-      satisfied: false,
-      isFallback: true,
-    };
-  }
-  const wrong = question.choices.find(
-    (c) => c.label.toUpperCase() !== question.answerLabel.toUpperCase()
-  );
-  const label = question.commonMistake?.label ?? wrong?.label ?? question.answerLabel;
-  const text = question.choices.find((c) => c.label === label)?.text ?? "";
-  return {
-    message: `うーん、いまちょっと考えがまとまりません…。とりあえず「${label}（${text}）」かなと思うのですが、自信がないです。どうやって見分ければいいか、判断のポイントを教えてもらえますか？`,
-    chosenLabel: label,
-    isCorrect:
-      label.trim().toUpperCase() === question.answerLabel.trim().toUpperCase(),
-    satisfied: false,
-    isFallback: true,
-  };
-}
 
 // POST /api/lesson/practice — 練習問題で生徒役AIの1ターンを返す
 export async function POST(req: NextRequest) {
-  let question: MCQuestion | undefined;
-  let isFollowup = false;
   let cacheKey: string | null = null;
   let requestHash: string | null = null;
   try {
@@ -74,7 +44,6 @@ export async function POST(req: NextRequest) {
       participant_id,
       session_id,
     } = body;
-    isFollowup = !!is_followup;
 
     const safeDialogue = boundedDialogue(dialogue);
     if (!unit_id || question_id == null || !safeDialogue) {
@@ -96,15 +65,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const unit = getUnitById(unit_id);
-    if (!unit) {
-      return NextResponse.json(
-        { error: "指定された単元が見つかりません" },
-        { status: 404 }
-      );
-    }
+    const unit = authorization.scope.unit;
 
-    question = unit.practiceQuestions.find((q) => q.id === question_id);
+    const question = unit.practiceQuestions.find((q) => q.id === question_id);
     if (!question) {
       return NextResponse.json(
         { error: "指定された練習問題が見つかりません" },
@@ -113,7 +76,7 @@ export async function POST(req: NextRequest) {
     }
 
     cacheKey = attempt_id
-      ? `practice:${authorization.scope.participantId}:${attempt_id}`
+      ? `practice:v2:${authorization.scope.participantId}:${attempt_id}`
       : null;
     requestHash = await sha256(JSON.stringify({
       unit_id,
@@ -149,7 +112,7 @@ export async function POST(req: NextRequest) {
       unit,
       question,
       safeDialogue,
-      isFollowup,
+      !!is_followup,
       exchange_count ?? 0,
       !!force_stumble,
       !!is_cold_open
@@ -161,13 +124,9 @@ export async function POST(req: NextRequest) {
       await expireAiResponse(cacheKey, requestHash);
     }
     console.error("[/api/lesson/practice]", err);
-    // リトライ済みでなお失敗 → 定型応答で授業を止めない（フォールバックはキャッシュしない）
-    if (question) {
-      return NextResponse.json(fallbackTurn(question, isFollowup));
-    }
     return NextResponse.json(
-      { error: "AI応答中にエラーが発生しました。しばらく後に再試行してください。" },
-      { status: 500 }
+      publicAiError(err, "AIの応答を取得できませんでした。しばらく後に再試行してください。"),
+      { status: 503 }
     );
   }
 }

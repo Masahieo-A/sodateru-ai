@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { teachingHint } from "@/lib/gemini";
-import { getUnitById } from "@/lib/questions";
 import { authorizeLessonScope, boundedDialogue } from "@/lib/learning/access";
+import { publicAiError } from "@/lib/learning/ai-errors";
 import type { LessonMessage } from "@/types";
 
-// Gemini呼び出しはリトライ込みで10秒を超えうるため延長（Vercel）
+// Gemini呼び出しはリトライ込みで10秒を超えうるため延長。
 export const maxDuration = 60;
 
 // POST /api/lesson/hint — 文法マスターが「教え方」のヒントを返す
@@ -39,25 +39,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const unit = getUnitById(unit_id);
-    if (!unit) {
-      return NextResponse.json(
-        { error: "指定された単元が見つかりません" },
-        { status: 404 }
-      );
-    }
+    const unit = authorization.scope.unit;
 
     const question =
       question_id != null
         ? unit.practiceQuestions.find((q) => q.id === question_id)
         : undefined;
+    if (question_id != null && !question) {
+      return NextResponse.json({ error: "この授業の対象外の問題です" }, { status: 404 });
+    }
 
     const hint = await teachingHint(unit, safeDialogue, question);
     return NextResponse.json(hint);
   } catch (err) {
     console.error("[/api/lesson/hint]", err);
     return NextResponse.json(
-      { error: "ヒント生成中にエラーが発生しました。しばらく後に再試行してください。" },
+      publicAiError(err, "ヒント生成中にエラーが発生しました。しばらく後に再試行してください。"),
       { status: 500 }
     );
   }

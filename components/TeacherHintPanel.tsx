@@ -26,6 +26,7 @@ export function TeacherHintPanel({
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prepaidDepleted, setPrepaidDepleted] = useState(false);
 
   const fetchHint = async () => {
     setLoading(true);
@@ -43,7 +44,10 @@ export function TeacherHintPanel({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "ヒントの取得に失敗しました");
+      if (!res.ok) {
+        if (data.code === "PREPAID_CREDITS_DEPLETED") setPrepaidDepleted(true);
+        throw new Error(data.error ?? "ヒントの取得に失敗しました");
+      }
       setHint((data as TeachingHint).hint);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -57,7 +61,7 @@ export function TeacherHintPanel({
       <button
         type="button"
         onClick={fetchHint}
-        disabled={loading}
+        disabled={loading || prepaidDepleted}
         className="w-full flex items-center justify-between px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors text-left disabled:opacity-60"
       >
         <div className="flex items-center gap-2">
@@ -68,19 +72,19 @@ export function TeacherHintPanel({
           <span className="text-xs text-amber-400 font-normal">（文法マスターが助言）</span>
         </div>
         <span className="text-amber-500 text-xs font-medium">
-          {loading ? "考え中..." : hint ? "🔄 もう一度" : "▶ 見る"}
+          {loading ? "考え中..." : prepaidDepleted ? "利用不可" : hint ? "🔄 もう一度" : "▶ 見る"}
         </span>
       </button>
 
       {error && !loading && (
         <div className="bg-white px-4 py-3 space-y-2">
           <p className="text-sm text-red-600">⚠️ {error}</p>
-          <button
+          {!prepaidDepleted && <button
             onClick={fetchHint}
             className="w-full py-2 px-4 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors text-sm"
           >
             🔄 もう一度
-          </button>
+          </button>}
         </div>
       )}
 

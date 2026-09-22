@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUnitById } from "@/lib/questions";
 import { inferLearningRule } from "@/lib/gemini";
 import { fallbackInference, isValidTopic, topicRefFor } from "@/lib/learning/topics";
-import { getSessionUser } from "@/lib/auth/session";
-import { getDb } from "@/lib/db";
+import { authorizeLessonScope } from "@/lib/learning/access";
 import type { LessonMessage } from "@/types";
 
 export const maxDuration = 60;
@@ -14,8 +12,6 @@ export async function POST(req: NextRequest) {
       unit_id?: string; topic_index?: number; dialogue?: LessonMessage[]; correction?: string;
       session_id?: string; participant_id?: string;
     };
-    const user = await getSessionUser(req);
-    if (!user) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
     if (!body.unit_id || !body.session_id || !body.participant_id || !Array.isArray(body.dialogue) || body.topic_index == null) {
       return NextResponse.json({ error: "unit_id / session_id / participant_id / topic_index / dialogue は必須です" }, { status: 400 });
     }
@@ -30,16 +26,16 @@ export async function POST(req: NextRequest) {
     }
     const dialogueLength = body.dialogue.reduce((total, message) => total + message.content.length, 0);
     if (dialogueLength > 20000) return NextResponse.json({ error: "対話全体が長すぎます" }, { status: 413 });
-    const unit = getUnitById(body.unit_id);
+    const authorization = await authorizeLessonScope(req, {
+      participantId: body.participant_id,
+      sessionId: body.session_id,
+      unitId: body.unit_id,
+    });
+    if (!authorization.ok) return NextResponse.json({ error: authorization.error }, { status: authorization.status });
+    const unit = authorization.scope.unit;
     if (!unit || !isValidTopic(unit, body.topic_index)) {
       return NextResponse.json({ error: "指定された学習トピックが見つかりません" }, { status: 404 });
     }
-    const participant = await getDb().prepare(
-      `SELECT p.id FROM participants p
-         JOIN sessions s ON s.id=p.session_id
-        WHERE p.id=? AND p.session_id=? AND p.user_id=? AND s.unit_id=? LIMIT 1`
-    ).bind(body.participant_id, body.session_id, user.id, body.unit_id).first<{ id: string }>();
-    if (!participant) return NextResponse.json({ error: "この学習セッションへのアクセス権がありません" }, { status: 403 });
     const topicRef = topicRefFor(unit, body.topic_index);
     const dialogueText = body.dialogue.map((m) => `${m.role}: ${m.content}`).join("\n");
     let inferredRule: string;

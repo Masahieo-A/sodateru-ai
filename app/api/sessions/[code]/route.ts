@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { getUnitById } from "@/lib/questions";
+import { scopeUnit, selectedKnowledgeIdsFromDb } from "@/lib/learning/scope";
 
 export const runtime = "edge";
 
@@ -27,7 +28,11 @@ export async function GET(
   if (!data) {
     return NextResponse.json({ error: "セッションが見つかりません" }, { status: 404 });
   }
-  const unit = getUnitById(String(data.unit_id));
+  const baseUnit = getUnitById(String(data.unit_id));
+  const unit = baseUnit ? scopeUnit(baseUnit, selectedKnowledgeIdsFromDb(
+    typeof data.selected_knowledge_ids === "string" ? data.selected_knowledge_ids : null,
+    baseUnit,
+  )) : undefined;
   const parse = (value: unknown, fallback: unknown) => {
     if (typeof value !== "string") return fallback;
     try { return JSON.parse(value); } catch { return fallback; }
@@ -35,7 +40,7 @@ export async function GET(
   const learningConfig = data.learning_config ? {
     curriculum_id: data.curriculum_id ?? null,
     curriculum_version: data.curriculum_version ?? null,
-    selected_knowledge_ids: parse(data.selected_knowledge_ids, unit?.teachingGuide.coverageTopics.map((_, i) => knowledgeTopicId(unit, i)) ?? []),
+    selected_knowledge_ids: parse(data.selected_knowledge_ids, baseUnit?.teachingGuide.coverageTopics.map((_, i) => knowledgeTopicId(baseUnit, i)) ?? []),
     prior_knowledge_ids: parse(data.prior_knowledge_ids, []),
     sampling_policy: parse(data.sampling_policy, {}),
     confirmation_policy: parse(data.confirmation_policy, {}),
@@ -45,7 +50,7 @@ export async function GET(
     } : {}),
   } : {
     curriculum_id: null, curriculum_version: null,
-    selected_knowledge_ids: unit?.teachingGuide.coverageTopics.map((_, i) => knowledgeTopicId(unit, i)) ?? [],
+    selected_knowledge_ids: baseUnit?.teachingGuide.coverageTopics.map((_, i) => knowledgeTopicId(baseUnit, i)) ?? [],
     prior_knowledge_ids: [], sampling_policy: {}, confirmation_policy: {},
     immutable_snapshot: unit ? {
       unit_id: unit.id, unit_name: unit.name,

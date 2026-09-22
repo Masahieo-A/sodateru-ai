@@ -255,7 +255,7 @@ export default function TeacherDashboardPage() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={isCreating || !sessionName.trim()}
+                disabled={isCreating || !sessionName.trim() || selectedKnowledgeIds.length === 0}
                 className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold py-2.5 px-6 rounded-xl transition text-sm"
               >
                 {isCreating ? "作成中..." : "セッションを作成"}

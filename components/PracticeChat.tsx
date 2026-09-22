@@ -60,6 +60,7 @@ export function PracticeChat({
   const [loading, setLoading] = useState(true);
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [prepaidDepleted, setPrepaidDepleted] = useState(false);
 
   // API送信用の「最新の対話全文」を ref で保持（state の非同期性を回避）
   const convoRef = useRef<LessonMessage[]>(dialogue);
@@ -97,7 +98,10 @@ export function PracticeChat({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "AIの応答に失敗しました");
+      if (!res.ok) {
+        if (data.code === "PREPAID_CREDITS_DEPLETED") setPrepaidDepleted(true);
+        throw new Error(data.error ?? "AIの応答に失敗しました");
+      }
 
       const turn = data as PracticeTurn;
       const studentMsg: LessonMessage = { role: "student", content: turn.message };
@@ -251,7 +255,7 @@ export function PracticeChat({
       {error && !loading && (
         <ErrorRetry
           message={error}
-          onRetry={() => runTurn(lastFollowupRef.current)}
+          onRetry={prepaidDepleted ? undefined : () => runTurn(lastFollowupRef.current)}
           note="再試行しても、これまでの会話は消えません。"
         />
       )}
@@ -272,7 +276,7 @@ export function PracticeChat({
             />
             <button
               onClick={handleSend}
-              disabled={reply.trim().length === 0}
+              disabled={prepaidDepleted || reply.trim().length === 0}
               className="w-full mt-1 py-2.5 px-4 bg-indigo-600 text-white font-bold rounded-xl
                 hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
             >
@@ -299,7 +303,7 @@ export function PracticeChat({
           </button>
           <p className="text-center text-xs font-medium text-gray-400">
             {error
-              ? "スキップすると、この問題でAIに教える機会はなくなります。できれば「もう一度」を試してください。"
+              ? prepaidDepleted ? "前払い残高が補充されるまで、AIの解答は利用できません。" : "スキップすると、この問題でAIに教える機会はなくなります。できれば「もう一度」を試してください。"
               : satisfied
               ? "AIはこの問題を十分に理解できたようです！"
               : "いつでも次に進めます。納得いくまで教えてもOK。"}

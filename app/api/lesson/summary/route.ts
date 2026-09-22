@@ -6,9 +6,11 @@ import { sha256 } from "@/lib/auth/crypto";
 import { getSessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { boundedDialogue } from "@/lib/learning/access";
+import { scopeUnit, selectedKnowledgeIdsFromDb } from "@/lib/learning/scope";
+import { publicAiError } from "@/lib/learning/ai-errors";
 import type { LessonMessage, LearningSummary as LS } from "@/types";
 
-// Gemini呼び出しはリトライ込みで10秒を超えうるため延長（Vercel）
+// Gemini呼び出しはリトライ込みで10秒を超えうるため延長。
 export const maxDuration = 60;
 export const runtime = "edge";
 
@@ -37,8 +39,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const unit = getUnitById(unit_id);
-    if (!unit) {
+    const baseUnit = getUnitById(unit_id);
+    if (!baseUnit) {
       return NextResponse.json(
         { error: "指定された単元が見つかりません" },
         { status: 404 }
@@ -56,15 +58,9 @@ export async function POST(req: NextRequest) {
     if (!participant) return NextResponse.json({ error: "参加者の権限を確認できません" }, { status: 403 });
     if (participant.unit_id !== unit_id) return NextResponse.json({ error: "単元がセッションと一致しません" }, { status: 400 });
     if (participant.status !== "active") return NextResponse.json({ error: "授業中のセッションでのみ実行できます" }, { status: 409 });
-    if (participant.selected_knowledge_ids) {
-      try {
-        if (!Array.isArray(JSON.parse(participant.selected_knowledge_ids))) throw new Error("invalid");
-      } catch {
-        return NextResponse.json({ error: "学習設定が不正です" }, { status: 500 });
-      }
-    }
+    const unit = scopeUnit(baseUnit, selectedKnowledgeIdsFromDb(participant.selected_knowledge_ids, baseUnit));
 
-    summaryKey = attempt_id ? `summary:${user.id}:${attempt_id}` : null;
+    summaryKey = attempt_id ? `summary:v2:${user.id}:${attempt_id}` : null;
     summaryHash = await sha256(JSON.stringify({ unit_id, session_id, student_id, dialogue: safeDialogue }));
     const reservation = await reserveAiResponse<LS>(summaryKey, summaryHash, user.id);
     if (reservation.kind === "completed") return NextResponse.json(reservation.response);
@@ -98,7 +94,7 @@ export async function POST(req: NextRequest) {
     if (summaryKey && summaryHash) await expireAiResponse(summaryKey, summaryHash);
     console.error("[/api/lesson/summary]", err);
     return NextResponse.json(
-      { error: "学習内容のまとめ中にエラーが発生しました。しばらく後に再試行してください。" },
+      publicAiError(err, "学習内容のまとめ中にエラーが発生しました。しばらく後に再試行してください。"),
       { status: 500 }
     );
   }

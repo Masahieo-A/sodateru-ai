@@ -1,6 +1,8 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import type { LessonMessage } from "@/types";
+import { getUnitById } from "@/lib/questions";
+import { scopeUnit, selectedKnowledgeIdsFromDb } from "@/lib/learning/scope";
+import type { GrammarUnit, LessonMessage } from "@/types";
 
 type LessonScope = {
   participantId?: unknown;
@@ -13,6 +15,7 @@ export type AuthorizedLessonScope = {
   sessionId: string;
   unitId: string;
   userId: string;
+  unit: GrammarUnit;
 };
 
 export type LessonScopeResult =
@@ -38,18 +41,22 @@ export async function authorizeLessonScope(
   }
 
   const row = await getDb().prepare(
-    `SELECT p.id
+    `SELECT p.id,c.selected_knowledge_ids
        FROM participants p
        JOIN sessions s ON s.id=p.session_id
+       LEFT JOIN session_learning_configs c ON c.session_id=s.id
       WHERE p.id=? AND p.user_id=? AND p.session_id=?
         AND s.unit_id=? AND s.status='active'
       LIMIT 1`,
   ).bind(input.participantId, user.id, input.sessionId, input.unitId)
-    .first<{ id: string }>();
+    .first<{ id: string; selected_knowledge_ids: string | null }>();
 
   if (!row) {
     return { ok: false, status: 403, error: "授業参加権限を確認できません" };
   }
+  const baseUnit = getUnitById(input.unitId);
+  if (!baseUnit) return { ok: false, status: 400, error: "単元が見つかりません" };
+  const unit = scopeUnit(baseUnit, selectedKnowledgeIdsFromDb(row.selected_knowledge_ids, baseUnit));
 
   return {
     ok: true,
@@ -58,6 +65,7 @@ export async function authorizeLessonScope(
       sessionId: input.sessionId,
       unitId: input.unitId,
       userId: user.id,
+      unit,
     },
   };
 }

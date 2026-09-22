@@ -99,6 +99,7 @@ export function ColdOpenChat({
   const [loading, setLoading] = useState(true);
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [prepaidDepleted, setPrepaidDepleted] = useState(false);
 
   // API送信用の「最新の対話全文」を ref で保持（state の非同期性を回避）
   const convoRef = useRef<LessonMessage[]>([]);
@@ -132,7 +133,10 @@ export function ColdOpenChat({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "AIの応答に失敗しました");
+      if (!res.ok) {
+        if (data.code === "PREPAID_CREDITS_DEPLETED") setPrepaidDepleted(true);
+        throw new Error(data.error ?? "AIの応答に失敗しました");
+      }
 
       const turn = data as PracticeTurn;
       const studentMsg: LessonMessage = { role: "student", content: turn.message };
@@ -268,7 +272,7 @@ export function ColdOpenChat({
       {error && !loading && (
         <ErrorRetry
           message={error}
-          onRetry={() => runTurn(lastFollowupRef.current)}
+          onRetry={prepaidDepleted ? undefined : () => runTurn(lastFollowupRef.current)}
           note="再試行しても、これまでの会話は消えません。"
         />
       )}
@@ -297,7 +301,7 @@ export function ColdOpenChat({
             />
             <button
               onClick={handleSend}
-              disabled={reply.trim().length === 0}
+              disabled={prepaidDepleted || reply.trim().length === 0}
               className="w-full mt-1 py-2.5 px-4 bg-indigo-600 text-white font-bold rounded-xl
                 hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
             >

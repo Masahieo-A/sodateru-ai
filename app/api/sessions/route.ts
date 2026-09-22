@@ -3,6 +3,7 @@ import { getUnitById } from "@/lib/questions";
 import { getSessionUser } from "@/lib/auth/session";
 import { randomToken } from "@/lib/auth/crypto";
 import { getDb } from "@/lib/db";
+import { scopeUnit } from "@/lib/learning/scope";
 
 export const runtime = "edge";
 
@@ -88,6 +89,10 @@ export async function POST(req: NextRequest) {
     ? value.filter((item): item is string => typeof item === "string" && topicIds.includes(item))
     : fallback;
   const selectedKnowledgeIds = asIds(body.selected_knowledge_ids, topicIds);
+  const scopedUnit = scopeUnit(unit, selectedKnowledgeIds);
+  if (!selectedKnowledgeIds.length || !scopedUnit.practiceQuestions.length || !scopedUnit.testQuestions.length) {
+    return NextResponse.json({ error: "今回扱う知識を選択してください。練習・テストに使える問題が必要です" }, { status: 400 });
+  }
   const priorKnowledgeIds = asIds(body.prior_knowledge_ids, []).filter((id) => selectedKnowledgeIds.includes(id));
   const jsonObject = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const snapshot = {

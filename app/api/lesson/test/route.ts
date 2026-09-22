@@ -7,9 +7,11 @@ import { getDb, nowIso } from "@/lib/db";
 import { randomToken, sha256 } from "@/lib/auth/crypto";
 import { independentCheckFor } from "@/lib/learning/topics";
 import { boundedDialogue } from "@/lib/learning/access";
+import { scopeUnit, selectedKnowledgeIdsFromDb } from "@/lib/learning/scope";
+import { publicAiError } from "@/lib/learning/ai-errors";
 import type { LessonMessage, TestResult } from "@/types";
 
-// カバレッジ判定＋テスト評価はリトライ込みで10秒を超えうるため延長（Vercel）
+// カバレッジ判定＋テスト評価はリトライ込みで10秒を超えうるため延長。
 export const maxDuration = 60;
 export const runtime = "edge";
 
@@ -69,22 +71,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const unit = getUnitById(unit_id);
-    if (!unit) {
+    const baseUnit = getUnitById(unit_id);
+    if (!baseUnit) {
       return NextResponse.json(
         { error: "指定された単元が見つかりません" },
         { status: 404 }
       );
     }
-    let aiEvidence: unknown[];
-    let masteryEvidence: unknown[];
-    try {
-      aiEvidence = validateEvidence(body.ai_learning_evidence, "ai_learning", unit);
-      masteryEvidence = validateEvidence(body.mastery_evidence, "mastery", unit);
-    } catch {
-      return NextResponse.json({ error: "学習証拠の形式が不正です" }, { status: 400 });
-    }
-
     // 授業モードでは、クライアントから送られた dialogue は信用せず、
     // サマリー生成時にサーバー保存した内容を「正」として使う（改ざん防止）。
     // teaching_summary があればそれを優先（トークン削減）、なければ保存済み対話を使う。
@@ -101,13 +94,18 @@ export async function POST(req: NextRequest) {
       if (!participant) return NextResponse.json({ error: "参加者の権限を確認できません" }, { status: 403 });
       if (participant.unit_id !== unit_id) return NextResponse.json({ error: "単元がセッションと一致しません" }, { status: 400 });
       if (participant.status !== "active") return NextResponse.json({ error: "授業中のセッションでのみ実行できます" }, { status: 409 });
-      if (participant.selected_knowledge_ids) {
-        try {
-          if (!Array.isArray(JSON.parse(participant.selected_knowledge_ids))) throw new Error("invalid");
-        } catch { return NextResponse.json({ error: "学習設定が不正です" }, { status: 500 }); }
-      }
       teachingSummary = participant.teaching_summary ?? undefined;
       try { dbDialogue = participant.dialogue_log ? JSON.parse(participant.dialogue_log) as LessonMessage[] : undefined; } catch { dbDialogue = undefined; }
+    }
+
+    const unit = scopeUnit(baseUnit, selectedKnowledgeIdsFromDb(participant?.selected_knowledge_ids ?? null, baseUnit));
+    let aiEvidence: unknown[];
+    let masteryEvidence: unknown[];
+    try {
+      aiEvidence = validateEvidence(body.ai_learning_evidence, "ai_learning", unit);
+      masteryEvidence = validateEvidence(body.mastery_evidence, "mastery", unit);
+    } catch {
+      return NextResponse.json({ error: "学習証拠の形式が不正です" }, { status: 400 });
     }
 
     // 知識源：DB のサマリー > DB の対話 > クライアントの対話（standaloneモード用）
@@ -120,7 +118,7 @@ export async function POST(req: NextRequest) {
     }
     const verifiedSourceDialogue = sourceDialogue ?? undefined;
 
-    const attemptKey = attempt_id ? `test:${user.id}:${attempt_id}` : null;
+    const attemptKey = attempt_id ? `test:v2:${user.id}:${attempt_id}` : null;
     const requestHash = await sha256(JSON.stringify({
       unit_id,
       student_id: participant?.id ?? null,
@@ -200,7 +198,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[/api/lesson/test]", err);
     return NextResponse.json(
-      { error: "テスト評価中にエラーが発生しました。しばらく後に再試行してください。" },
+      publicAiError(err, "テスト評価中にエラーが発生しました。しばらく後に再試行してください。"),
       { status: 500 }
     );
   }
