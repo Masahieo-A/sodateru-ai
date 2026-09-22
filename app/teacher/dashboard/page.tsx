@@ -28,6 +28,17 @@ function knowledgeTopicId(unit: UnitCatalogEntry, index: number): string {
   return unit.knowledgeTopics[index]?.id ?? `${unit.id}.legacy-topic.${index}`;
 }
 
+async function responseError(res: Response, fallback: string): Promise<Error> {
+  try {
+    const data = await res.json() as { error?: unknown };
+    if (typeof data.error === "string" && data.error) return new Error(data.error);
+  } catch {
+    // Keep a useful application error even when an upstream/proxy response is
+    // not JSON (for example, a platform error page).
+  }
+  return new Error(fallback);
+}
+
 export default function TeacherDashboardPage() {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
@@ -58,8 +69,7 @@ export default function TeacherDashboardPage() {
         return;
       }
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "取得に失敗しました");
+        throw await responseError(res, "取得に失敗しました");
       }
       const data: Session[] = await res.json();
       setSessions(data);
@@ -118,10 +128,14 @@ export default function TeacherDashboardPage() {
         return;
       }
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "作成に失敗しました");
+        throw await responseError(res, "作成に失敗しました");
       }
-      const newSession: Session = await res.json();
+      let newSession: Session;
+      try {
+        newSession = await res.json() as Session;
+      } catch {
+        throw new Error("サーバーから不正な応答が返りました。もう一度お試しください");
+      }
       setSessions((prev) => [newSession, ...prev]);
       setSessionName("");
     } catch (err) {

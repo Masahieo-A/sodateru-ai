@@ -5,7 +5,16 @@ export function proxy(request: NextRequest) {
   if (pathname === "/auth" || pathname.startsWith("/api/auth/")) {
     return NextResponse.next();
   }
-  if (request.cookies.get("sodateru_session")?.value) return NextResponse.next();
+  const hasSessionCookie = Boolean(request.cookies.get("sodateru_session")?.value);
+  if (hasSessionCookie) return NextResponse.next();
+
+  // API callers expect a JSON response. Redirecting an unauthenticated API
+  // request to the HTML login page makes fetch(...).json() fail with the
+  // misleading `Unexpected token '<'` error.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
+  }
+
   const login = new URL("/auth", request.url);
   login.searchParams.set("redirect", pathname);
   return NextResponse.redirect(login);
