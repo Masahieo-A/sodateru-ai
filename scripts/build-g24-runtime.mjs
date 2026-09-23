@@ -114,6 +114,7 @@ const units = source.units.map((unit) => {
     misconceptionChoiceLabel: q.misconceptions?.[0]?.choiceLabel,
     rubricCriteriaIds: q.rubricCriteriaIds,
     answerAmbiguity: q.answerAmbiguity,
+    answerAnalysis: q.answerAnalysis,
     sourceRefs: sourceIdList(q.sourceRefs),
     sourceRefDetails: sourceDetails(q.sourceRefs),
     difficulty: q.difficulty === "basic" ? "intro" : q.difficulty === "advanced" ? "challenge" : "standard",

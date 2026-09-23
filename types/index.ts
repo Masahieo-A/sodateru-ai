@@ -196,6 +196,16 @@ export type PracticeTurn = {
    * （授業が止まることだけは防ぐためのフォールバック）
    */
   isFallback?: boolean;
+  /** 教えるべき項目ごとの構造化判定。AIの自然文ではなく分岐用の状態。 */
+  topicEvaluations?: TopicEvaluation[];
+};
+
+export type TopicEvaluation = {
+  topicIndex: number;
+  topic: string;
+  status: "sufficient" | "partial" | "absent_or_wrong";
+  evidence?: string;
+  gap?: string;
 };
 
 /** 文法マスター（教師AI）からの「教え方」ヒント */
@@ -222,6 +232,10 @@ export type TopicCoverage = {
   topic: string;
   /** 先生の説明がこのトピックを「問題を解けるレベルで」含んでいたか */
   covered: boolean;
+  /** 十分/部分的/未説明・誤りの3段階判定（旧結果では省略）。 */
+  status?: TopicEvaluation["status"];
+  /** partial / absent_or_wrong 時に不足している判断基準。 */
+  gap?: string;
   /** covered の根拠となる、説明からの引用（判定AIの出力） */
   evidence?: string;
   /** 引用が実際に説明文中に存在するとサーバ側で確認できたか */

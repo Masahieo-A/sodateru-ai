@@ -474,6 +474,20 @@
               }
             }
           },
+          "answerAnalysis": {
+            "type": "object",
+            "required": ["target", "choiceClassifications", "rationale"],
+            "additionalProperties": false,
+            "properties": {
+              "target": { "type": "string", "minLength": 1 },
+              "choiceClassifications": {
+                "type": "object",
+                "minProperties": 4,
+                "additionalProperties": { "type": "string", "minLength": 1 }
+              },
+              "rationale": { "type": "string", "minLength": 1 }
+            }
+          },
           "origin": {
             "const": "original"
           }

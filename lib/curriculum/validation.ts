@@ -14,6 +14,27 @@ function validateQuestion(q: CurriculumQuestion, path: string, knowledgeIds: Set
   for (const id of q.knowledgeIds) if (!knowledgeIds.has(id)) add(issues, `${path}.knowledgeIds`, `unknown knowledge id: ${id}`);
   for (const id of q.sourceRefs ?? []) if (!sourceIds.has(id)) add(issues, `${path}.sourceRefs`, `unknown source id: ${id}`);
   if (q.answerAmbiguity && q.answerAmbiguity.status !== "unique") add(issues, `${path}.answerAmbiguity`, "questions must be marked unique before publishing");
+  if (q.answerAnalysis) {
+    const analysis = q.answerAnalysis;
+    const analysisPath = `${path}.answerAnalysis`;
+    if (!analysis.target?.trim()) add(issues, `${analysisPath}.target`, "must name the concept being tested");
+    if (!analysis.rationale?.trim()) add(issues, `${analysisPath}.rationale`, "must explain why the keyed answer matches the target");
+    const choiceLabels = new Set(q.choices.map((choice) => choice.label));
+    for (const label of choiceLabels) {
+      const classification = analysis.choiceClassifications?.[label];
+      if (!classification?.trim()) add(issues, `${analysisPath}.choiceClassifications.${label}`, "must classify every answer choice");
+    }
+    for (const label of Object.keys(analysis.choiceClassifications ?? {})) {
+      if (!choiceLabels.has(label)) add(issues, `${analysisPath}.choiceClassifications.${label}`, "must refer to an existing choice");
+    }
+    const matchingLabels = q.choices
+      .filter((choice) => analysis.choiceClassifications?.[choice.label]?.trim() === analysis.target?.trim())
+      .map((choice) => choice.label);
+    if (matchingLabels.length !== 1) add(issues, `${analysisPath}.target`, "must match exactly one classified choice");
+    if (matchingLabels.length === 1 && matchingLabels[0] !== q.answer) {
+      add(issues, `${analysisPath}.target`, "the uniquely matching choice must equal answer");
+    }
+  }
   for (const id of q.rubricCriteriaIds ?? []) if (!rubricIds.has(id)) add(issues, `${path}.rubricCriteriaIds`, `unknown rubric criterion: ${id}`);
 }
 

@@ -128,6 +128,22 @@ export function LearningSummary({
         </div>
       </div>
 
+      {/* 教員が今回の対象に選んだ項目。AI要約とは独立して全件表示する。 */}
+      <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm p-5">
+        <h3 className="font-bold text-indigo-900 mb-1">📋 今回教えるべきこと</h3>
+        <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+          授業で指定された内容です。下の「教わったこと」「理解できたこと」と見比べ、抜けがあれば練習に戻って説明してください。
+        </p>
+        <ul className="space-y-2">
+          {unit.teachingGuide.coverageTopics.map((topic, index) => (
+            <li key={unit.teachingGuide.knowledgeTopicIds?.[index] ?? index} className="flex items-start gap-2 text-sm text-gray-800">
+              <span className="text-indigo-500 font-bold shrink-0">{index + 1}.</span>
+              <span className="leading-relaxed">{topic}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
       {/* 教わったこと */}
       {summary.taught.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

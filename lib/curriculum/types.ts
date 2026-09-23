@@ -38,6 +38,12 @@ export type CurriculumQuestion = {
   misconceptionChoiceLabel?: string;
   rubricCriteriaIds?: string[];
   answerAmbiguity?: { status: "unique" | "ambiguous"; note?: string };
+  /** Explicit semantic classification for questions where categories might overlap. */
+  answerAnalysis?: {
+    target: string;
+    choiceClassifications: Record<string, string>;
+    rationale: string;
+  };
   sourceRefs?: string[];
   difficulty?: "intro" | "standard" | "challenge";
   sourceRefDetails?: unknown[];

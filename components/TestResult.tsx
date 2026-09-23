@@ -148,11 +148,13 @@ export function TestResult({
                   "rounded-xl px-3 py-2.5 border",
                   t.covered
                     ? "bg-green-50 border-green-100"
+                    : t.status === "partial"
+                    ? "bg-amber-50 border-amber-200"
                     : "bg-gray-50 border-gray-200"
                 )}
               >
                 <div className="flex items-start gap-2">
-                  <span className="flex-shrink-0">{t.covered ? "✅" : "⬜"}</span>
+                  <span className="flex-shrink-0">{t.covered ? "✅" : t.status === "partial" ? "△" : "⬜"}</span>
                   <div className="min-w-0">
                     <p
                       className={cn(
@@ -171,11 +173,11 @@ export function TestResult({
                         」
                       </p>
                     )}
-                    {!t.covered && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        まだ教わっていない → 次はここを教えるとスコアが上がる！
-                      </p>
-                    )}
+                    {!t.covered && <p className="text-xs text-gray-600 mt-1">
+                      {t.status === "partial"
+                        ? `説明はありますが、まだ不足しています${t.gap ? `：${t.gap}` : "。判断基準を補ってください。"}`
+                        : `説明がないか、誤りがあります${t.gap ? `：${t.gap}` : "。もう一度説明してください。"}`}
+                    </p>}
                   </div>
                 </div>
               </div>
@@ -277,7 +279,7 @@ export function TestResult({
         <h3 className="font-bold text-gray-800 mb-4">🧠 AIの回答と思考過程</h3>
         <div className="space-y-4">
           {result.answers.map((a, i) => {
-            const q = unit.testQuestions[i];
+            const q = unit.testQuestions.find((question) => question.id === a.question_id);
             const correctText = q?.choices.find(
               (c) => c.label === q.answerLabel
             )?.text;
@@ -295,8 +297,28 @@ export function TestResult({
                 )}
               >
                 <p className="text-sm font-medium text-gray-700 mb-1">
-                  問{i + 1}: {q?.sentence}
+                  問{i + 1}: {q?.sentence ?? `問題ID ${a.question_id}`}
                 </p>
+                {q && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 my-3" aria-label={`問${i + 1}の選択肢`}>
+                    {q.choices.map((choice) => {
+                      const chosen = choice.label === a.chosenLabel;
+                      const correct = choice.label === q.answerLabel;
+                      return (
+                        <div key={choice.label} className={cn(
+                          "rounded-lg border px-3 py-2 text-xs leading-relaxed",
+                          chosen ? "border-indigo-400 bg-indigo-50 text-indigo-900" :
+                          correct ? "border-green-300 bg-green-50 text-green-900" :
+                          "border-gray-200 bg-white text-gray-700",
+                        )}>
+                          <span className="font-bold">{choice.label}. {choice.text}</span>
+                          {chosen && <span className="ml-2 font-bold">← AIが選択</span>}
+                          {correct && <span className="ml-2 font-bold">✓ 正解</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <span
                     className={cn(

@@ -33,14 +33,6 @@ export async function GET(
        FROM participants p LEFT JOIN users u ON u.id=p.user_id
       WHERE p.session_id=? ORDER BY p.best_score DESC,p.last_attempt_at ASC,p.created_at ASC LIMIT 500`,
   ).bind(id).all<Record<string, unknown>>();
-  const { results: attempts } = await db.prepare(
-    `SELECT id,participant_id,session_id,explanation,teaching_score,ai_correct_count,total_questions,result_json,created_at
-       FROM attempts WHERE session_id=? ORDER BY created_at DESC LIMIT 2000`,
-  ).bind(id).all<Record<string, unknown>>();
-  const { results: evidence } = await db.prepare(
-    `SELECT id,participant_id,session_id,kind,content_json,created_at
-       FROM evidence WHERE session_id=? ORDER BY created_at DESC LIMIT 5000`,
-  ).bind(id).all<Record<string, unknown>>();
   const parse = (value: unknown, fallback: unknown) => {
     if (typeof value !== "string") return fallback;
     try { return JSON.parse(value); } catch { return fallback; }
@@ -53,12 +45,6 @@ export async function GET(
       name: participant.account_name ?? participant.name,
       google_sub: participant.account_google_sub ?? null,
     },
-    attempts: attempts.filter((attempt) => attempt.participant_id === participant.id).map((attempt) => ({
-      ...attempt, result: parse(attempt.result_json, null), result_json: undefined,
-    })),
-    evidence: evidence.filter((item) => item.participant_id === participant.id).map((item) => ({
-      ...item, content: parse(item.content_json, null), content_json: undefined,
-    })),
   }));
   const unit = getUnitById(String(session.unit_id));
   const defaultIds = unit?.teachingGuide.coverageTopics.map((_, index) => unit.teachingGuide.knowledgeTopicIds?.[index] ?? `${unit.id}.legacy-topic.${index}`) ?? [];

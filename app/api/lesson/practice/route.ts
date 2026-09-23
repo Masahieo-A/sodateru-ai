@@ -6,6 +6,7 @@ import {
   reserveAiResponse,
 } from "@/lib/ai-cache";
 import { sha256 } from "@/lib/auth/crypto";
+import { getDb } from "@/lib/db";
 import { authorizeLessonScope, boundedDialogue } from "@/lib/learning/access";
 import { publicAiError } from "@/lib/learning/ai-errors";
 import type { LessonMessage, PracticeTurn } from "@/types";
@@ -117,6 +118,42 @@ export async function POST(req: NextRequest) {
       !!force_stumble,
       !!is_cold_open
     );
+    // 先生ページから途中経過を振り返れるよう、各ターンの対話を保存する。
+    // クライアントが送った時点の対話がDB上の記録を含む場合だけCAS更新し、
+    // 遅れて届いた古いリクエストで新しいログを巻き戻さない。
+    const existingLog = await getDb().prepare(
+      `SELECT dialogue_log FROM participants WHERE id=? AND user_id=? AND session_id=?`,
+    ).bind(authorization.scope.participantId, authorization.scope.userId, authorization.scope.sessionId)
+      .first<{ dialogue_log: string | null }>();
+    if (existingLog) {
+      let storedDialogue: LessonMessage[] = [];
+      try {
+        const parsed: unknown = existingLog.dialogue_log ? JSON.parse(existingLog.dialogue_log) : [];
+        storedDialogue = boundedDialogue(parsed) ?? [];
+      } catch {
+        storedDialogue = [];
+      }
+      const requestIncludesStored = storedDialogue.every((message, index) =>
+        safeDialogue[index]?.role === message.role && safeDialogue[index]?.content === message.content
+      );
+      if (requestIncludesStored) {
+        let nextDialogue = boundedDialogue([...safeDialogue, { role: "student", content: turn.message }]);
+        if (!nextDialogue) {
+          const appended = [...safeDialogue, { role: "student" as const, content: turn.message }];
+          while (appended.length > 40 || appended.reduce((sum, message) => sum + message.content.length, 0) > 20_000) {
+            appended.shift();
+          }
+          nextDialogue = boundedDialogue(appended);
+        }
+        if (nextDialogue) {
+          await getDb().prepare(
+            `UPDATE participants SET dialogue_log=?
+              WHERE id=? AND user_id=? AND session_id=? AND dialogue_log IS ?`,
+          ).bind(JSON.stringify(nextDialogue), authorization.scope.participantId,
+            authorization.scope.userId, authorization.scope.sessionId, existingLog.dialogue_log).run();
+        }
+      }
+    }
     await cacheAiResponse(cacheKey, turn, requestHash);
     return NextResponse.json(turn);
   } catch (err) {

@@ -39178,7 +39178,7 @@
       "knowledgeIds": [
         "modal.can.ability"
       ],
-      "prompt": "can が「能力・可能」を表している文を選びなさい。",
+      "prompt": "人や動物が自分で行える技能・行動を can で表している文を選びなさい。",
       "choices": [
         {
           "label": "A",
@@ -39199,6 +39199,16 @@
       ],
       "correctLabel": "C",
       "rationale": "犬の能力を尋ねている。ほかは許可・依頼・可能性。",
+      "answerAnalysis": {
+        "target": "身につけた技能・行動の能力",
+        "choiceClassifications": {
+          "A": "許可",
+          "B": "依頼",
+          "C": "身につけた技能・行動の能力",
+          "D": "天候についての可能性"
+        },
+        "rationale": "Cは犬がボールを取れる能力を尋ねている。Aは許可、Bは依頼、Dは天候の可能性を述べており、対象の技能・行動能力ではない。"
+      },
       "difficulty": "standard",
       "eligibility": "assessment",
       "misconceptions": [
