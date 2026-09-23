@@ -175,6 +175,8 @@ export type LessonRole = "teacher" | "student";
 export type LessonMessage = {
   role: LessonRole;
   content: string;
+  /** Learner explicitly chose not to explain these scoped topic indexes yet. */
+  unknownTopics?: number[];
 };
 
 // ============================================================

@@ -22,7 +22,7 @@ function ScoreRing({
 }: {
   score: number;
   label: string;
-  /** 教え方スコアに占める重み（例: "40%"） */
+  /** 教え方スコアに占める重み（例: "20%"） */
   weight: string;
 }) {
   const color =
@@ -106,14 +106,13 @@ export function TestResult({
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-bold text-gray-800 mb-1">📊 AIに伝わったことの内訳</h3>
         <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-            教え方スコア ＝ AIのテスト正答率×40％ ＋ 網羅性×30％ ＋ 正確性×20％ ＋
-          わかりやすさ×10％
+          教え方スコア ＝ AIのテスト正答率×20％ ＋ 網羅性×30％ ＋ 正確性×25％ ＋ わかりやすさ×25％
         </p>
         <div className="grid grid-cols-4 gap-3 text-center">
           <ScoreRing
             score={result.score_breakdown.test_rate ?? testRate}
             label="テスト正答率"
-            weight="40%"
+            weight="20%"
           />
           <ScoreRing
             score={result.score_breakdown.completeness}
@@ -123,12 +122,12 @@ export function TestResult({
           <ScoreRing
             score={result.score_breakdown.accuracy}
             label="正確性"
-            weight="20%"
+            weight="25%"
           />
           <ScoreRing
             score={result.score_breakdown.clarity}
             label="わかりやすさ"
-            weight="10%"
+            weight="25%"
           />
         </div>
       </div>

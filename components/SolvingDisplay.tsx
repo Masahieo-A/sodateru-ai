@@ -75,7 +75,7 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
       {/* 問題リスト */}
       <div className="space-y-3">
         {result.answers.map((a, i) => {
-          const q = unit.testQuestions[i];
+          const q = unit.testQuestions.find((question) => question.id === a.question_id);
           const isVisible = i <= currentQ;
           const hasAnswer = answeredSet.has(i);
           const isCurrent = i === currentQ && !hasAnswer;
@@ -104,6 +104,17 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                 <span className="text-indigo-600 font-bold mr-1">問{i + 1}</span>
                 {q?.sentence}
               </p>
+              {q && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3" aria-label={`問${i + 1}の選択肢`}>
+                {q.choices.map((choice) => {
+                  const selected = hasAnswer && choice.label === a.chosenLabel;
+                  const correct = hasAnswer && choice.label === q.answerLabel;
+                  return <div key={choice.label} className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${selected ? "border-indigo-400 bg-indigo-50 text-indigo-900" : correct ? "border-green-300 bg-green-50 text-green-900" : "border-gray-200 bg-white text-gray-700"}`}>
+                    <span className="font-bold">{choice.label}. {choice.text}</span>
+                    {selected && <span className="ml-2 font-bold">← AIが選択</span>}
+                    {correct && <span className="ml-2 font-bold">✓ 正解</span>}
+                  </div>;
+                })}
+              </div>}
 
               {isCurrent ? (
                 <div className="flex items-center gap-2 py-1">

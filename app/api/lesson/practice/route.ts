@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       unit_id?: string;
       question_id?: number;
       dialogue?: LessonMessage[];
+      question_dialogue?: LessonMessage[];
       is_followup?: boolean;
       exchange_count?: number;
       force_stumble?: boolean;
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       unit_id,
       question_id,
       dialogue,
+      question_dialogue,
       is_followup,
       exchange_count,
       force_stumble,
@@ -47,7 +49,8 @@ export async function POST(req: NextRequest) {
     } = body;
 
     const safeDialogue = boundedDialogue(dialogue);
-    if (!unit_id || question_id == null || !safeDialogue) {
+    const safeQuestionDialogue = boundedDialogue(question_dialogue ?? []);
+    if (!unit_id || question_id == null || !safeDialogue || !safeQuestionDialogue) {
       return NextResponse.json(
         { error: "unit_id / question_id / dialogue は必須です" },
         { status: 400 }
@@ -75,6 +78,11 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
+    const dialogueSuffix = safeDialogue.slice(-safeQuestionDialogue.length);
+    if (safeQuestionDialogue.length > safeDialogue.length ||
+      safeQuestionDialogue.some((message, index) => JSON.stringify(message) !== JSON.stringify(dialogueSuffix[index]))) {
+      return NextResponse.json({ error: "この問題の対話が全体の対話と一致しません" }, { status: 400 });
+    }
 
     cacheKey = attempt_id
       ? `practice:v2:${authorization.scope.participantId}:${attempt_id}`
@@ -83,6 +91,7 @@ export async function POST(req: NextRequest) {
       unit_id,
       question_id,
       dialogue: safeDialogue,
+      question_dialogue: safeQuestionDialogue,
       is_followup: !!is_followup,
       exchange_count: exchange_count ?? 0,
       force_stumble: !!force_stumble,
@@ -113,6 +122,7 @@ export async function POST(req: NextRequest) {
       unit,
       question,
       safeDialogue,
+      safeQuestionDialogue,
       !!is_followup,
       exchange_count ?? 0,
       !!force_stumble,

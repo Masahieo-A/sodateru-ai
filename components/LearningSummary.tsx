@@ -108,6 +108,9 @@ export function LearningSummary({
     );
   }
 
+  const unknownTopicIndices = [...new Set(dialogue.flatMap((message) => message.unknownTopics ?? []))]
+    .filter((index) => index >= 0 && index < unit.teachingGuide.coverageTopics.length);
+
   return (
     <div className="space-y-5">
       <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-6 text-white text-center shadow-lg">
@@ -117,6 +120,14 @@ export function LearningSummary({
           あなたの教えで、AIはここまで成長しました
         </p>
       </div>
+
+      {unknownTopicIndices.length > 0 && <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5">
+        <h3 className="font-bold text-amber-950 mb-1">📌 あとで復習したいこと</h3>
+        <p className="text-xs text-amber-900 mb-3">「分からない」と記録した項目です。分からないまま進んでも大丈夫。後で自分のペースで確かめましょう。</p>
+        <ul className="list-disc pl-5 space-y-1 text-sm text-amber-950">
+          {unknownTopicIndices.map((index) => <li key={index}>{unit.teachingGuide.coverageTopics[index]}</li>)}
+        </ul>
+      </div>}
 
       {/* 総括 */}
       <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-5">

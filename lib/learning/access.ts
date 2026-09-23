@@ -78,13 +78,18 @@ export function boundedDialogue(value: unknown): LessonMessage[] | null {
     if (!item || typeof item !== "object" || Array.isArray(item)) return null;
     const role = (item as { role?: unknown }).role;
     const content = (item as { content?: unknown }).content;
+    const unknownTopics = (item as { unknownTopics?: unknown }).unknownTopics;
     if ((role !== "teacher" && role !== "student") || typeof content !== "string") {
       return null;
     }
     if (content.length > 4_000) return null;
+    if (unknownTopics !== undefined && (
+      role !== "teacher" || !Array.isArray(unknownTopics) || unknownTopics.length > 20 ||
+      !unknownTopics.every((index) => Number.isInteger(index) && index >= 0 && index < 100)
+    )) return null;
     totalLength += content.length;
     if (totalLength > 20_000) return null;
-    messages.push({ role, content });
+    messages.push({ role, content, ...(unknownTopics !== undefined ? { unknownTopics } : {}) });
   }
   return messages;
 }

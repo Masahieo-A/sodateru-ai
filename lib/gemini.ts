@@ -16,6 +16,7 @@ import {
   TopicEvaluation,
 } from "@/types";
 import { getEnv } from "@/lib/db";
+import { unresolvedUnknown } from "@/lib/learning/unknown";
 
 // 教室内の応答速度と費用を重視して Flash-Lite を使う。
 const MODEL = "gemini-3.5-flash-lite";
@@ -299,7 +300,8 @@ export async function evaluateTopics(
   unit: GrammarUnit,
   knowledgeText: string,
   topicIndices?: number[],
-  dialogue: LessonMessage[] = []
+  dialogue: LessonMessage[] = [],
+  replyDialogue: LessonMessage[] = dialogue
 ): Promise<TopicEvaluationResult> {
   const allTopics = unit.teachingGuide.coverageTopics;
   const targets = (topicIndices ?? allTopics.map((_, i) => i)).filter(
@@ -310,7 +312,7 @@ export async function evaluateTopics(
   const hasKnowledge =
     knowledgeText.trim().length > 0 &&
     knowledgeText.trim() !== "（まだ何も教わっていない）";
-  const replyContext = latestQuestionContext(dialogue);
+  const replyContext = latestQuestionContext(replyDialogue);
   if ((!hasKnowledge || targets.length === 0) && !replyContext) {
     return {
       evaluations: targets.map((i) => ({
@@ -346,7 +348,9 @@ ${replyContext ? `AIの直前の質問：${replyContext.question}\n先生の最�
 ${knowledgeText}
 
 【学習トピック】
-${targets.map((i) => `${i}: ${allTopics[i]}`).join("\n")}
+${targets.map((i) => `${i}: ${allTopics[i]}／教材上の到達目標: ${unit.teachingGuide.thinkingPrompts[i] ?? "（記載なし）"}`).join("\n")}
+教材上の到達目標を基準にし、先生の誤った因果関係を補って正しい説明に作り替えないでください。
+${targets.some((i) => unit.teachingGuide.knowledgeTopicIds?.[i] === "infinitive.noun.comp") ? "名詞的用法の補語では、be動詞の後ろの不定詞が主語の内容を説明します。単に『主語と動作対象の関係』と言うだけでは、この判断基準を教えたことになりません。" : ""}
 
 以下のJSON形式【のみ】で回答してください：
 {
@@ -377,18 +381,25 @@ ${targets.map((i) => `${i}: ${allTopics[i]}`).join("\n")}
       ? verifyEvidence(evidence, knowledgeText)
       : false;
     // 根拠引用が説明中に見つからない covered は false に倒す（安全側）
-    const status: TopicEvaluationStatus =
+    let status: TopicEvaluationStatus =
       judged?.status === "sufficient" && evidenceVerified
         ? "sufficient"
         : judged?.status === "partial" && evidenceVerified
           ? "partial"
           : "absent_or_wrong";
+    const unknownStillUnresolved = unresolvedUnknown(dialogue, i, evidence);
+    if (unknownStillUnresolved) status = "absent_or_wrong";
+    if (status === "sufficient" && unit.teachingGuide.knowledgeTopicIds?.[i] === "infinitive.noun.comp" &&
+      evidence && /主語と動作対象/.test(evidence)) {
+      status = "absent_or_wrong";
+    }
     return {
       topicIndex: i,
       topic: allTopics[i],
       status,
       evidence: status !== "absent_or_wrong" ? evidence : undefined,
-      gap: status === "partial" ? judged?.gap?.trim() || "説明に不足があります" : undefined,
+      gap: status === "partial" ? judged?.gap?.trim() || "説明に不足があります" :
+        unknownStillUnresolved ? "分からないと記録されています" : undefined,
     };
   });
   const replyAnswered = !replyContext || (
@@ -405,9 +416,10 @@ ${targets.map((i) => `${i}: ${allTopics[i]}`).join("\n")}
 export async function coverageJudge(
   unit: GrammarUnit,
   knowledgeText: string,
-  topicIndices?: number[]
+  topicIndices?: number[],
+  dialogue: LessonMessage[] = []
 ): Promise<TopicCoverage[]> {
-  return (await evaluateTopics(unit, knowledgeText, topicIndices)).evaluations.map((item) => ({
+  return (await evaluateTopics(unit, knowledgeText, topicIndices, dialogue, [])).evaluations.map((item) => ({
     topicIndex: item.topicIndex,
     topic: item.topic,
     covered: item.status === "sufficient",
@@ -441,6 +453,7 @@ export async function practiceChat(
   unit: GrammarUnit,
   question: MCQuestion,
   dialogue: LessonMessage[],
+  questionDialogue: LessonMessage[],
   isFollowup: boolean,
   exchangeCount: number,
   forceStumble = false,
@@ -470,7 +483,7 @@ export async function practiceChat(
       .filter((m) => m.role === "teacher")
       .map((m) => m.content)
       .join("\n");
-    const evaluation = await evaluateTopics(unit, teacherText, required, dialogue);
+    const evaluation = await evaluateTopics(unit, teacherText, required, dialogue, questionDialogue);
     topicEvaluations = evaluation.evaluations;
     replyAnswered = evaluation.replyAnswered;
     replyReason = evaluation.replyReason;
@@ -484,10 +497,11 @@ export async function practiceChat(
 
   // A bare denial after the AI asked a conceptual question is a claim, not an explanation.
   // Reflect what was said, then ask for the reason or a counterexample instead of accepting it.
-  const lastTeacher = [...dialogue].reverse().find((m) => m.role === "teacher")?.content ?? "";
-  const lastStudent = [...dialogue].slice(0, -1).reverse().find((m) => m.role === "student")?.content ?? "";
+  const lastTeacher = [...questionDialogue].reverse().find((m) => m.role === "teacher")?.content ?? "";
+  const lastStudent = [...questionDialogue].slice(0, -1).reverse().find((m) => m.role === "student")?.content ?? "";
   const unsupportedNoDifference = isFollowup && /特に(?:は)?(?:違い|差|ニュアンス)?(?:ない|ありません|無い)|(?:違い|差|ニュアンス)は(?:ない|ありません|無い)/.test(lastTeacher)
     && /なぜ|どうして|違い|ニュアンス|区別|使い分け/.test(lastStudent);
+  const memorizationIntent = isFollowup && /暗記|丸暗記|覚えるしか|覚えるべき/.test(lastTeacher);
 
   // === 解答ラベルの確定（LLMに委ねない） ===
   // - coldOpen / stumble / 未カバー → もっともらしい誤答
@@ -507,7 +521,12 @@ export async function practiceChat(
     : undefined;
 
   let phase: string;
-  if (unsupportedNoDifference) {
+  if (memorizationIntent) {
+    phase = `【暗記という学び方を受け入れます】
+先生は「${lastTeacher}」と教えました。暗記が役に立つことを認め、理屈の説明を強要しないでください。
+今回の範囲で、同じパターンとして覚えるべき表現がほかにもあれば一覧で教えてほしい、と自由回答で尋ねてください。
+ただし暗記する対象がまだ示されていなければ理解済みにはしません。satisfied は false。`;
+  } else if (unsupportedNoDifference) {
     phase = `【先生の返答は断定だけで、理由や根拠がまだありません】
 先生は「${lastTeacher}」と答えました。まず、その返答を聞いたことは明示しますが、根拠がないまま「分かりました」「違いはありません」と同意してはいけません。
 - 「違いがないということですね。ただ、なぜそう言えるのかがまだ分かりません」のように、先生の主張と未解決点を区別して伝えてください。
@@ -634,7 +653,9 @@ ${coverage.map((t) => `- ${t}`).join("\n")}
   二択に迫られて確信がないときは、当てずっぽうを正解のように語らず「〜だと思うのですが、合っていますか？」と正直に不確かさを示します。
 
 【共通ルール】
-- 上の学習対象について、先生が一度教えてくれたことは「学んだこと」として素直に受け入れ、同じ質問を繰り返さない。
+- 先生の言葉は尊重するが、誤った説明を正しい文法に言い換えて理解済みにしない。根拠のない飛躍（例：「主語と動作対象」だから主語＝補語）はしない。
+- 先生が「分からない」とした内容は、理解していない状態のまま先に進める。責めたり、説明を強要したりしない。
+- 既に十分と判定された内容は繰り返し尋ねない。不足・誤りのある部分だけを尋ねる。
 - 先生の発言が「特に違いはない」のような根拠のない断定だけなら、発言内容を正確に受け止めたうえで、根拠や具体例を尋ねる。断定を事実として承認したり「分かりました」と流したりしない。
 - 先生の返答が自分の質問に直接答えていない場合は、そのずれを具体的に指摘し、何を説明してほしいかを言い直す。空疎な相づちだけで済ませない。
 - 前提知識や教わった内容を超える推測で“賢く”答えすぎない。あくまで「教わった範囲＋前提知識」で考える。
@@ -642,8 +663,12 @@ ${coverage.map((t) => `- ${t}`).join("\n")}
 
 ${phase}
 
-【これまでの先生とのやりとり】
-${formatDialogue(dialogue, { maxMessages: 10, maxChars: 6_000 })}
+【この問題でのやりとり】
+${formatDialogue(questionDialogue, { maxMessages: 10, maxChars: 6_000 })}
+
+【これまでに十分と判定された知識の根拠引用】
+${topicEvaluations.filter((item) => item.status === "sufficient" && item.evidence).map((item) => `- ${item.topic}: ${item.evidence}`).join("\n") || "（なし）"}
+→ 上記以外の過去の発言は、今回の文法的根拠として語らないでください。
 
 【取り組む問題】
 ${question.sentence}
@@ -665,6 +690,12 @@ ${formatChoices(question)}
     ? unit.teachingGuide.coverageTopics[required[0]]
     : undefined;
   turn.message = enforceOpenEndedQuestion(turn.message, question, focusTopic);
+  if (memorizationIntent) {
+    turn.message = "暗記する方法も役に立ちますね。今回の範囲で、ほかに同じパターンとして覚えるべき表現があれば一覧で教えてください。";
+  }
+  if (!covered && required.length > 0 && /すっきり理解|完全に理解|正しい答えだと分か|バッチリ分か/.test(turn.message)) {
+    turn.message = `教えてくれた内容は聞きましたが、${[...missingTopics, ...partialTopics.map((item) => item.topic)].join("・")}の判断基準はまだ分かりません。どこを手がかりに区別するのか説明してもらえますか？`;
+  }
   // 評価対象は teacher ロールの発言だけで、引用も同じ発言内に存在することを検証済み。
   turn.topicEvaluations = topicEvaluations;
 
@@ -678,7 +709,7 @@ ${formatChoices(question)}
   // - 追加説明後は、必要トピックがすべて十分で、直前の質問にも答えた場合のみ true
   if (!isFollowup && decidedLabel) {
     turn.satisfied = false;
-  } else if (unsupportedNoDifference) {
+  } else if (unsupportedNoDifference || memorizationIntent) {
     turn.satisfied = false;
   } else if (isFollowup && required.length > 0) {
     turn.satisfied = covered && replyAnswered;
@@ -793,9 +824,15 @@ export async function learningSummary(
   const prompt = `
 あなたは「${unit.name}」を先生（ユーザー）から教わってきた生徒AIです。
 これまでのやりとりを振り返り、「何を教わって、何を理解できたか」を自分の言葉でまとめてください。
+先生が「分からない」と答えた内容や、根拠が示されなかった内容は「理解できたこと」に入れず、「まだあいまい・不足していること」に入れてください。
+先生の説明に誤りや飛躍がある場合、正しい文法を勝手に補って「教わったこと」にしないでください。暗記すると教わった場合は、暗記する内容だけを記録してください。
 
 【これまでのやりとり】
 ${formatDialogue(dialogue)}
+
+【採用できる説明の原文（先生の発言のみ）】
+${dialogue.filter((message) => message.role === "teacher" && !message.unknownTopics?.length).map((message) => `- ${message.content}`).join("\n") || "（なし）"}
+AI自身の発言や推測は「教わった知識」の根拠にしないでください。
 
 以下のJSON形式【のみ】で回答してください：
 {
@@ -842,8 +879,8 @@ export async function inferLearningRule(
 // ============================================================
 // ④ テスト：解答はサーバ側で確定し、LLMは思考文とルーブリック評価のみ
 //
-// スコア構成（P1-3 / P2-7）：決定的な成分で70%を構成する
-//   教え方スコア = テスト正答率 40% + 網羅性 30% + 正確性 20% + わかりやすさ 10%
+// スコア構成：教える内容と説明の質を重視する
+//   教え方スコア = テスト正答率 20% + 網羅性 30% + 正確性 25% + わかりやすさ 25%
 //   - テスト正答率: カバレッジ判定＋サーバ照合で決定的
 //   - 網羅性: covered_topics / total_topics で機械算出
 //   - 正確性・わかりやすさ: LLMルーブリック評価（temperature 0）
@@ -851,10 +888,10 @@ export async function inferLearningRule(
 
 /** スコアの重み（TestResult 画面の表示と一致させること） */
 export const SCORE_WEIGHTS = {
-  testRate: 0.4,
+  testRate: 0.2,
   completeness: 0.3,
-  accuracy: 0.2,
-  clarity: 0.1,
+  accuracy: 0.25,
+  clarity: 0.25,
 } as const;
 
 const testSchema: ResponseSchema = {
@@ -901,13 +938,11 @@ const testSchema: ResponseSchema = {
 
 export async function runTest(
   unit: GrammarUnit,
-  // teachingSummary があればそれを知識源に使う（トークン削減）。
-  // なければ対話全文 dialogue にフォールバックする。
+  // dialogue の先生発言を判定し、検証済み引用だけを解答生成に使う。
+  // 旧データなど dialogue がない場合だけ teachingSummary を判定材料にする。
   source: { dialogue?: LessonMessage[]; teachingSummary?: string }
 ): Promise<TestResult> {
-  // 教わった内容（テストでAIが使える唯一の知識）
-  // ※カバレッジ判定の引用照合は「対話全文」に対して行う（サマリーは要約のため
-  //   引用元にならない）。判定AIへも対話全文を渡し、解答AIにはサマリー優先で渡す。
+  // サマリーやAI自身の発話は、先生が教えたという証拠にはしない。
   const dialogueText = formatDialogue(source.dialogue ?? []);
   const knowledgeText = source.teachingSummary?.trim()
     ? source.teachingSummary.trim()
@@ -915,8 +950,15 @@ export async function runTest(
 
   // === Step 1: カバレッジ判定（生徒役AIの演技から独立） ===
   // 「この問題を解けるだけの説明を受けたか」を先に確定する。
-  const coverageSource = source.dialogue?.length ? dialogueText : knowledgeText;
-  const topicCoverage = await coverageJudge(unit, coverageSource);
+  // AIの発話は「教えた証拠」ではない。先生自身の説明だけを判定する。
+  const coverageSource = source.dialogue?.length
+    ? source.dialogue.filter((message) => message.role === "teacher").map((message) => message.content).join("\n")
+    : knowledgeText;
+  const topicCoverage = await coverageJudge(unit, coverageSource, undefined, source.dialogue ?? []);
+  const trustedTeachingText = topicCoverage
+    .filter((item) => item.covered && item.evidence)
+    .map((item) => `- ${item.topic}: ${item.evidence}`)
+    .join("\n");
   const isTaught = (q: MCQuestion): boolean =>
     !q.requiredTopics ||
     q.requiredTopics.length === 0 ||
@@ -951,7 +993,7 @@ export async function runTest(
 - thinking では、教わっていない一般知識を根拠にしてはいけません。必ず先生の説明の内容に触れてください。
 
 【先生から教わった内容（これだけが使える知識）】
-${knowledgeText}
+${trustedTeachingText || "（十分に確認できた説明はありません）"}
 
 【カバレッジ判定の結果（機械判定済み）】
 - 教わったトピック: ${coveredList.length ? coveredList.join(" / ") : "（なし）"}

@@ -66,8 +66,9 @@ export function PracticeChat({
   const convoRef = useRef<LessonMessage[]>(dialogue);
   // 初回ターンを一度だけ起動するためのガード
   const startedRef = useRef(false);
-  // この問題で先生が追加で教えた回数（安全弁：2回以上で必ず次へ進める）
+  // この問題で先生が追加で教えた回数（対話の長さを伝えるため）
   const teacherRepliesRef = useRef(0);
+  const questionStartRef = useRef(dialogue.length);
   // 冪等化キー：ターンごとに発行し、エラー時の再試行では同じIDを再送する
   // （サーバがキャッシュを返すため、連打・再試行で二重生成されない）
   const attemptIdRef = useRef<string>(
@@ -90,6 +91,7 @@ export function PracticeChat({
           session_id: sessionId,
           question_id: question.id,
           dialogue: convoRef.current,
+          question_dialogue: convoRef.current.slice(questionStartRef.current),
           is_followup: isFollowup,
           exchange_count: teacherRepliesRef.current,
           // 初回ターンのみ forceStumble を送る（あえて1問間違えさせる）
@@ -121,9 +123,7 @@ export function PracticeChat({
       if (!isFollowup) onFirstAnswer?.(!!turn.isCorrect);
       // “あえて間違える”演出が発動した初回ターンを親へ通知（事後開示用）
       if (!isFollowup && forceStumble) onStumble?.();
-      // 安全弁：2回以上教えたら、AIの応答に関わらず次へ進めるようにする
-      // （同じ質問の繰り返しで生徒が足止めされ、意欲を失うのを防ぐ）
-      setSatisfied(!!turn.satisfied || teacherRepliesRef.current >= 2);
+      setSatisfied(!!turn.satisfied);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -143,6 +143,10 @@ export function PracticeChat({
   const handleSend = async () => {
     const text = reply.trim();
     if (!text || loading) return;
+    if (/^(分からない|わからない|分かりません|わかりません)[。.!！]?$/.test(text)) {
+      handleUnknown(text);
+      return;
+    }
     const teacherMsg: LessonMessage = { role: "teacher", content: text };
     convoRef.current = [...convoRef.current, teacherMsg];
     onAppend(teacherMsg);
@@ -153,6 +157,18 @@ export function PracticeChat({
     // 新しいターンなので冪等化キーを発行し直す（再試行時はこのIDを使い回す）
     attemptIdRef.current = crypto.randomUUID();
     await runTurn(true);
+  };
+
+  const handleUnknown = (answer = "分からない（この内容はまだ説明できません）") => {
+    if (loading) return;
+    const teacherMsg: LessonMessage = {
+      role: "teacher",
+      content: answer,
+      unknownTopics: question.requiredTopics ?? [],
+    };
+    convoRef.current = [...convoRef.current, teacherMsg];
+    onAppend(teacherMsg);
+    onNext();
   };
 
   return (
@@ -284,6 +300,11 @@ export function PracticeChat({
             </button>
           </div>
 
+          <button type="button" onClick={() => handleUnknown()} className="w-full py-3 px-4 rounded-xl border-2 border-amber-200 bg-amber-50 text-amber-900 font-bold hover:bg-amber-100">
+            分からない — 未理解のまま次へ進む
+          </button>
+          <p className="text-xs text-amber-800 text-center">分からないと気づくのも学習です。この内容はAIが理解した扱いにせず、最後の振り返りに残します。</p>
+
           <button
             onClick={onNext}
             className={`w-full py-3.5 px-6 font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
@@ -306,7 +327,7 @@ export function PracticeChat({
               ? prepaidDepleted ? "前払い残高が補充されるまで、AIの解答は利用できません。" : "スキップすると、この問題でAIに教える機会はなくなります。できれば「もう一度」を試してください。"
               : satisfied
               ? "AIはこの問題を十分に理解できたようです！"
-              : "いつでも次に進めます。納得いくまで教えてもOK。"}
+              : "いつでも次に進めます。分からない場合は上のボタンで記録できます。"}
           </p>
         </div>
       )}
