@@ -1,5 +1,8 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+import { SotaAvatar } from "@/components/SotaAvatar";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import type { GrammarUnit, LessonMessage, LearningSummary as LS } from "@/types";
@@ -78,9 +81,9 @@ export function LearningSummary({
   if (loading) {
     return (
       <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-8 text-center">
-        <div className="text-4xl mb-3 animate-bounce">🤖</div>
+        <SotaAvatar size={48} className="mb-3 animate-bounce" />
         <p className="text-indigo-600 font-bold">
-          AIが学んだことを振り返っています...
+          ソウタが学んだことを振り返っています...
         </p>
       </div>
     );
@@ -102,7 +105,7 @@ export function LearningSummary({
           onClick={onBack}
           className="w-full py-3 px-6 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"
         >
-          ← 練習に戻る
+          <AppIcon name="back" /> 練習に戻る
         </button>
       </div>
     );
@@ -114,15 +117,15 @@ export function LearningSummary({
   return (
     <div className="space-y-5">
       <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-6 text-white text-center shadow-lg">
-        <div className="text-4xl mb-2">📖</div>
-        <h2 className="text-xl font-black mb-1">AIの学習内容</h2>
+        <AppIcon name="book" size={44} className="mb-2" />
+        <h2 className="text-xl font-black mb-1">ソウタの学習内容</h2>
         <p className="text-indigo-100 text-sm">
-          あなたの教えで、AIはここまで成長しました
+          あなたの教えで、ソウタはここまで成長しました
         </p>
       </div>
 
       {unknownTopicIndices.length > 0 && <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5">
-        <h3 className="font-bold text-amber-950 mb-1">📌 あとで復習したいこと</h3>
+        <h3 className="font-bold text-amber-950 mb-1"><AppIcon name="pin" /> あとで復習したいこと</h3>
         <p className="text-xs text-amber-900 mb-3">「分からない」と記録した項目です。分からないまま進んでも大丈夫。後で自分のペースで確かめましょう。</p>
         <ul className="list-disc pl-5 space-y-1 text-sm text-amber-950">
           {unknownTopicIndices.map((index) => <li key={index}>{unit.teachingGuide.coverageTopics[index]}</li>)}
@@ -132,7 +135,7 @@ export function LearningSummary({
       {/* 総括 */}
       <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-5">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🤖</span>
+          <SotaAvatar />
           <p className="text-indigo-800 text-sm leading-relaxed whitespace-pre-wrap">
             {summary.summary}
           </p>
@@ -141,7 +144,7 @@ export function LearningSummary({
 
       {/* 教員が今回の対象に選んだ項目。AI要約とは独立して全件表示する。 */}
       <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm p-5">
-        <h3 className="font-bold text-indigo-900 mb-1">📋 今回教えるべきこと</h3>
+        <h3 className="font-bold text-indigo-900 mb-1"><AppIcon name="list" /> 今回教えるべきこと</h3>
         <p className="text-xs text-gray-500 mb-3 leading-relaxed">
           授業で指定された内容です。下の「教わったこと」「理解できたこと」と見比べ、抜けがあれば練習に戻って説明してください。
         </p>
@@ -158,11 +161,11 @@ export function LearningSummary({
       {/* 教わったこと */}
       {summary.taught.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 mb-3">📝 教わったこと</h3>
+          <h3 className="font-bold text-gray-800 mb-3"><AppIcon name="note" /> 教わったこと</h3>
           <ul className="space-y-2">
             {summary.taught.map((t, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="mt-0.5 text-indigo-400 flex-shrink-0">▸</span>
+                <AppIcon name="next" className="mt-0.5 text-indigo-400" />
                 <span className="leading-relaxed">{t}</span>
               </li>
             ))}
@@ -173,11 +176,11 @@ export function LearningSummary({
       {/* 理解できたこと */}
       {summary.learned.length > 0 && (
         <div className="bg-green-50 rounded-2xl border border-green-100 p-5">
-          <h3 className="font-bold text-green-800 mb-3">✅ 理解できたこと</h3>
+          <h3 className="font-bold text-green-800 mb-3"><AppIcon name="success" /> 理解できたこと</h3>
           <ul className="space-y-2">
             {summary.learned.map((t, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-green-700">
-                <span className="mt-0.5 flex-shrink-0">✓</span>
+                <AppIcon name="check" className="mt-0.5" />
                 <span className="leading-relaxed">{t}</span>
               </li>
             ))}
@@ -189,7 +192,7 @@ export function LearningSummary({
       {summary.gaps.length > 0 && (
         <div className="bg-amber-50 rounded-2xl border border-amber-100 p-5">
           <h3 className="font-bold text-amber-800 mb-3">
-            ⚠️ まだあいまい・不足していること
+            <AppIcon name="warning" /> まだあいまい・不足していること
           </h3>
           <ul className="space-y-2">
             {summary.gaps.map((t, i) => (
@@ -209,13 +212,13 @@ export function LearningSummary({
             hover:bg-indigo-700 active:scale-95 transition-all duration-200
             flex items-center justify-center gap-2 text-base shadow-md"
         >
-          📝 テストを受けてもらう →
+          <AppIcon name="note" /> テストを受けてもらう <AppIcon name="next" />
         </button>
         <button
           onClick={onBack}
           className="w-full py-2.5 px-6 text-gray-500 font-medium rounded-xl hover:bg-gray-100 transition-colors text-sm"
         >
-          ← もう少し教える（練習に戻る）
+          <AppIcon name="back" /> もう少し教える（練習に戻る）
         </button>
       </div>
     </div>

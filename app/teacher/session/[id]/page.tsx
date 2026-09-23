@@ -1,11 +1,12 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { UNIT_CATALOG } from "@/lib/unit-catalog";
 import { Session, Student, SessionStatus, type LessonMessage } from "@/types";
 
-const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 const POLL_INTERVAL_MS = 3000;
 
 type LearnerDetail = {
@@ -221,14 +222,14 @@ export default function SessionManagePage({
       <header className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🌱</span>
+            <AppIcon name="plant" size={28} className="text-green-600" />
             <span className="font-black text-indigo-700 text-lg">育てるAI</span>
           </div>
           <button
             onClick={() => router.push("/teacher/dashboard")}
             className="text-sm text-gray-500 hover:text-gray-700 font-medium transition"
           >
-            ← ダッシュボードへ戻る
+            <AppIcon name="back" /> ダッシュボードへ戻る
           </button>
         </div>
       </header>
@@ -327,7 +328,7 @@ export default function SessionManagePage({
                       >
                         <td className="py-3 pr-4">
                           <span className={`font-bold ${isTop3 ? "text-lg" : "text-gray-500"}`}>
-                            {MEDAL[rank] ?? rank}
+                            {rank <= 3 ? <AppIcon name="medal" size={23} className={rank === 1 ? "text-amber-500" : rank === 2 ? "text-slate-400" : "text-orange-600"} /> : rank}
                           </span>
                         </td>
                         <td className="py-3 pr-4">
@@ -375,7 +376,7 @@ export default function SessionManagePage({
             <h2 className="text-base font-bold text-gray-800 mb-1">
               {students.find((student) => student.id === selectedStudentId)?.name ?? "学習者"}さんの教え方
             </h2>
-            <p className="text-xs text-gray-500 mb-5">本人が入力した説明と、AIとのやり取りを授業の振り返りに使えます。</p>
+            <p className="text-xs text-gray-500 mb-5">本人が入力した説明と、ソウタとのやり取りを授業の振り返りに使えます。</p>
             {detailLoading && <p className="text-sm text-gray-500">学習記録を読み込み中...</p>}
             {detailError && <p role="alert" className="text-sm text-red-700">{detailError}</p>}
             {learnerDetail && !detailLoading && (
@@ -385,7 +386,7 @@ export default function SessionManagePage({
                     <h3 className="font-bold text-gray-800">入力した説明・返答</h3>
                     <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
                       <input type="checkbox" checked={showAiDialogue} onChange={(event) => setShowAiDialogue(event.target.checked)} />
-                      AIの発言も表示
+                      ソウタの発言も表示
                     </label>
                   </div>
                   {learnerDetail.participant.dialogue.filter((message) => showAiDialogue || message.role === "teacher").length === 0 ? (
@@ -396,7 +397,7 @@ export default function SessionManagePage({
                         .filter((message) => showAiDialogue || message.role === "teacher")
                         .map((message, index) => (
                           <li key={index} className={`rounded-xl border px-4 py-3 ${message.role === "teacher" ? "bg-indigo-50 border-indigo-100" : "bg-gray-50 border-gray-200"}`}>
-                            <p className="text-xs font-bold text-gray-500 mb-1">{message.role === "teacher" ? "学習者の説明" : "AIの返答"}</p>
+                            <p className="text-xs font-bold text-gray-500 mb-1">{message.role === "teacher" ? "学習者の説明" : "ソウタの返答"}</p>
                             <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{message.content}</p>
                           </li>
                         ))}
@@ -418,7 +419,7 @@ export default function SessionManagePage({
                       {learnerDetail.attempts.map((attempt) => (
                         <li key={attempt.id} className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3">
                           <span className="font-bold">{attempt.teaching_score}点</span>
-                          <span className="ml-2">AI正答 {attempt.ai_correct_count}/{attempt.total_questions}問</span>
+                          <span className="ml-2">ソウタ正答 {attempt.ai_correct_count}/{attempt.total_questions}問</span>
                           <span className="ml-2 text-xs text-gray-500">{new Date(attempt.created_at).toLocaleString("ja-JP")}</span>
                           {attempt.explanation && (
                             <details className="mt-2">

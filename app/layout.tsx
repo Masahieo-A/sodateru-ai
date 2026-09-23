@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "育てるAI - AIに英文法を教えよう",
-  description: "AIに英文法を教えることで、自分自身の理解と説明力を高める学習アプリ",
+  title: "育てるAI - ソウタに英文法を教えよう",
+  description: "ソウタに英文法を教えることで、自分自身の理解と説明力を高める学習アプリ",
 };
 
 export default function RootLayout({

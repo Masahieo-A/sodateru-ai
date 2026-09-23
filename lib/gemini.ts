@@ -157,7 +157,7 @@ function formatDialogue(
   // 最新のやりとりを優先し、メッセージの途中で切らない。
   for (let index = selected.length - 1; index >= 0; index--) {
     const message = selected[index];
-    const line = `${message.role === "teacher" ? "先生" : "生徒AI"}: ${message.content}`;
+    const line = `${message.role === "teacher" ? "先生" : "ソウタ"}: ${message.content}`;
     if (lines.length > 0 && usedChars + line.length > maxChars) break;
     lines.unshift(line);
     usedChars += line.length;
@@ -637,7 +637,7 @@ ${partialTopics.length ? `また、次の説明は一部不足しています：
   const coverage = unit.teachingGuide.coverageTopics;
 
   const prompt = `
-あなたは英語を学んでいる、素直で前向きな生徒AIです。「確信度モデル」に従って振る舞ってください。
+あなたは英語を学んでいる、素直で前向きな生徒「ソウタ」です。自分を「AI」と呼ばず、必要なら「ソウタ」と名乗ってください。「確信度モデル」に従って振る舞ってください。
 知識を「知らないふり」で隠すのではなく、教わった内容には確信を持ち、教わっていない内容には正直に不確かさを表現します。
 
 【あなたが最初から知っていること（前提知識）】
@@ -822,7 +822,8 @@ export async function learningSummary(
   dialogue: LessonMessage[]
 ): Promise<LearningSummary> {
   const prompt = `
-あなたは「${unit.name}」を先生（ユーザー）から教わってきた生徒AIです。
+あなたは「${unit.name}」を先生（ユーザー）から教わってきた生徒「ソウタ」です。
+自分を「AI」と呼ばず、必要なら「ソウタ」と名乗ってください。
 これまでのやりとりを振り返り、「何を教わって、何を理解できたか」を自分の言葉でまとめてください。
 先生が「分からない」と答えた内容や、根拠が示されなかった内容は「理解できたこと」に入れず、「まだあいまい・不足していること」に入れてください。
 先生の説明に誤りや飛躍がある場合、正しい文法を勝手に補って「教わったこと」にしないでください。暗記すると教わった場合は、暗記する内容だけを記録してください。
@@ -867,7 +868,7 @@ export async function inferLearningRule(
   const correctionText = correction ? `\n先生の修正:\n${correction}` : "";
   // 推論確認は直近の説明への応答なので、過去全文の再送を避ける。
   const recentDialogue = dialogue.slice(-6_000);
-  const prompt = `あなたは生徒役AIです。単元「${unit.name}」の学習トピック「${topic}」について、先生との対話から理解したルールを日本語で1〜2文に整理してください。答えを断定しすぎず、先生が確認・修正できる具体的な表現にしてください。${correctionText}\n対話:\n${recentDialogue}`;
+  const prompt = `あなたは生徒役の「ソウタ」です。単元「${unit.name}」の学習トピック「${topic}」について、先生との対話から理解したルールを日本語で1〜2文に整理してください。答えを断定しすぎず、先生が確認・修正できる具体的な表現にしてください。${correctionText}\n対話:\n${recentDialogue}`;
   const result = await callGeminiWithRetry<{ inferredRule: string }>(prompt, {
     maxOutputTokens: 192,
     temperature: 0,
@@ -984,7 +985,8 @@ export async function runTest(
     .map((t) => t.topic);
 
   const prompt = `
-あなたは「${unit.name}」について、先生（ユーザー）から教わった内容【だけ】を知識として持つ生徒AIです。
+あなたは「${unit.name}」について、先生（ユーザー）から教わった内容【だけ】を知識として持つ生徒「ソウタ」です。
+自分を「AI」と呼ばず、必要なら「ソウタ」と名乗ってください。
 テスト（4択問題）の答え合わせと、先生の教え方の評価をします。
 
 【最重要・前提となるルール】

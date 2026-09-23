@@ -1,5 +1,7 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -82,14 +84,14 @@ function JoinForm() {
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🌱</span>
+            <AppIcon name="plant" size={28} className="text-green-600" />
             <span className="font-black text-indigo-700 text-lg">育てるAI</span>
           </div>
           <Link
             href="/"
             className="text-sm text-gray-500 hover:text-gray-700 font-medium transition flex items-center gap-1"
           >
-            ← トップへ
+            <AppIcon name="back" /> トップへ
           </Link>
         </div>
       </header>
@@ -98,7 +100,7 @@ function JoinForm() {
         <div className="w-full max-w-sm">
           {/* タイトルエリア */}
           <div className="text-center mb-8">
-            <div className="text-5xl mb-3">🎓</div>
+            <AppIcon name="graduate" size={52} className="mb-3 text-indigo-600" />
             <h1 className="text-2xl font-black text-gray-900 mb-2">
               授業に参加する
             </h1>
@@ -164,7 +166,7 @@ function JoinForm() {
               {/* エラー表示 */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-                  ⚠️ {error}
+                  <AppIcon name="warning" /> {error}
                 </div>
               )}
 
@@ -179,12 +181,12 @@ function JoinForm() {
               >
                 {isLoading ? (
                   <>
-                    <span className="animate-spin inline-block">⏳</span>
+                    <AppIcon name="loading" className="animate-spin" />
                     参加中...
                   </>
                 ) : (
                   <>
-                    🚀 参加する
+                    <AppIcon name="rocket" /> 参加する
                   </>
                 )}
               </button>

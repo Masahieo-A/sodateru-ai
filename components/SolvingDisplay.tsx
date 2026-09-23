@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AppIcon } from "@/components/AppIcon";
+import { SotaAvatar } from "@/components/SotaAvatar";
 import type { TestResult, GrammarUnit } from "@/types";
 
 type Props = {
@@ -47,10 +49,10 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
       {/* ヘッダー */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5">
         <div className="flex items-center gap-3 mb-3">
-          <span className="text-3xl">{allDone ? "🎯" : "🤖"}</span>
+          {allDone ? <AppIcon name="target" size={34} /> : <SotaAvatar size={40} />}
           <div>
             <h2 className="font-bold text-indigo-800 text-base">
-              {allDone ? "AIがテストを解き終わりました！" : "AIがテストを解いています..."}
+              {allDone ? "ソウタがテストを解き終わりました！" : "ソウタがテストを解いています..."}
             </h2>
             <p className="text-sm text-indigo-500 mt-0.5">
               {allDone
@@ -110,15 +112,15 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                   const correct = hasAnswer && choice.label === q.answerLabel;
                   return <div key={choice.label} className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${selected ? "border-indigo-400 bg-indigo-50 text-indigo-900" : correct ? "border-green-300 bg-green-50 text-green-900" : "border-gray-200 bg-white text-gray-700"}`}>
                     <span className="font-bold">{choice.label}. {choice.text}</span>
-                    {selected && <span className="ml-2 font-bold">← AIが選択</span>}
-                    {correct && <span className="ml-2 font-bold">✓ 正解</span>}
+                    {selected && <span className="ml-2 font-bold"><AppIcon name="back" /> ソウタが選択</span>}
+                    {correct && <span className="ml-2 font-bold"><AppIcon name="check" /> 正解</span>}
                   </div>;
                 })}
               </div>}
 
               {isCurrent ? (
                 <div className="flex items-center gap-2 py-1">
-                  <span className="text-indigo-400 animate-pulse text-base">💭</span>
+                  <AppIcon name="brain" className="text-indigo-400 animate-pulse" />
                   <span className="text-indigo-400 text-sm font-medium animate-pulse">
                     考え中...
                   </span>
@@ -131,7 +133,7 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
               ) : hasAnswer ? (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2.5 leading-relaxed">
-                    💭 {a.thinking}
+                    <AppIcon name="brain" /> {a.thinking}
                   </p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
@@ -141,13 +143,13 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
                           : "bg-red-100 text-red-700"
                       }`}
                     >
-                      AIの答え：{a.chosenLabel}
+                      ソウタの答え：{a.chosenLabel}
                       {chosenText ? `. ${chosenText}` : ""}
                     </span>
-                    <span className="text-base">{a.is_correct ? "✅" : "❌"}</span>
+                    <AppIcon name={a.is_correct ? "success" : "error"} className={a.is_correct ? "text-green-600" : "text-red-600"} />
                     {a.taught === false && (
                       <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-gray-200 text-gray-600">
-                        🔒 未習のため推測
+                        <AppIcon name="lock" /> 未習のため推測
                       </span>
                     )}
                     {!a.is_correct && correctText && (
@@ -173,7 +175,7 @@ export function SolvingDisplay({ result, unit, onDone }: Props) {
             hover:bg-indigo-700 active:scale-95 transition-all duration-200
             flex items-center justify-center gap-2 text-base shadow-md"
         >
-          📊 スコアと詳細を見る →
+          <AppIcon name="chart" /> スコアと詳細を見る <AppIcon name="next" />
         </button>
       )}
     </div>

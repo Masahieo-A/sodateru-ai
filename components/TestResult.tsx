@@ -1,5 +1,8 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+import { SotaAvatar } from "@/components/SotaAvatar";
+
 import { GrammarUnit, TestResult as TR } from "@/types";
 import { cn } from "@/lib/utils";
 import type { AiLearningEvidence, MasteryEvidence } from "@/types/learning";
@@ -63,7 +66,7 @@ export function TestResult({
     <div className="space-y-6">
       {masteryEvidence.length > 0 && (
         <div className="bg-green-50 rounded-2xl border border-green-100 shadow-sm p-5">
-          <h2 className="text-lg font-black text-green-900 mb-1">✅ 自分で解けたこと</h2>
+          <h2 className="text-lg font-black text-green-900 mb-1"><AppIcon name="success" /> 自分で解けたこと</h2>
           <p className="text-sm text-green-800 mb-4">
             独立チェック正答: {masteryEvidence.filter((e) => e.isCorrect).length}/{masteryEvidence.length}問
           </p>
@@ -71,7 +74,7 @@ export function TestResult({
             {masteryEvidence.map((e) => (
               <div key={e.id} className={cn("rounded-xl border px-3 py-2.5", e.isCorrect ? "bg-white border-green-200" : "bg-amber-50 border-amber-200")}>
                 <div className="flex items-start gap-2">
-                  <span aria-hidden="true">{e.isCorrect ? "✅" : "⬜"}</span>
+                  <AppIcon name={e.isCorrect ? "success" : "empty"} />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800">{e.topicRef.topic}</p>
                     <p className="text-xs text-gray-600 mt-1">{e.checkQuestion}</p>
@@ -90,23 +93,23 @@ export function TestResult({
           scoreColor
         )}
       >
-        <div className="text-sm font-medium opacity-90 mb-1">AIに伝わったこと／教え方スコア</div>
+        <div className="text-sm font-medium opacity-90 mb-1">ソウタに伝わったこと／教え方スコア</div>
         <div className="text-6xl font-black mb-2">{result.teaching_score}</div>
         <div className="text-sm opacity-90">/ 100点</div>
         <div className="mt-3 text-sm bg-white/20 rounded-lg px-3 py-1 inline-block">
-          AIのテスト正答率: {result.ai_correct_count}/{result.total_questions}問 （
+          ソウタのテスト正答率: {result.ai_correct_count}/{result.total_questions}問 （
           {testRate}%）
         </div>
         {aiLearningEvidence.length > 0 && (
-          <div className="mt-2 text-xs opacity-90">AIの理解確認: {aiLearningEvidence.length}トピック</div>
+          <div className="mt-2 text-xs opacity-90">ソウタの理解確認: {aiLearningEvidence.length}トピック</div>
         )}
       </div>
 
       {/* AIに伝わったことの内訳（重みは lib/gemini.ts と一致） */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-bold text-gray-800 mb-1">📊 AIに伝わったことの内訳</h3>
+        <h3 className="font-bold text-gray-800 mb-1"><AppIcon name="chart" /> ソウタに伝わったことの内訳</h3>
         <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-          教え方スコア ＝ AIのテスト正答率×20％ ＋ 網羅性×30％ ＋ 正確性×25％ ＋ わかりやすさ×25％
+          教え方スコア ＝ ソウタのテスト正答率×20％ ＋ 網羅性×30％ ＋ 正確性×25％ ＋ わかりやすさ×25％
         </p>
         <div className="grid grid-cols-4 gap-3 text-center">
           <ScoreRing
@@ -135,9 +138,9 @@ export function TestResult({
       {/* 教えた範囲の判定（網羅性の内訳） */}
       {result.topicCoverage && result.topicCoverage.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 mb-1">📚 教えた範囲の判定</h3>
+          <h3 className="font-bold text-gray-800 mb-1"><AppIcon name="books" /> 教えた範囲の判定</h3>
           <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-            網羅性スコアはここから計算されています。教わっていないトピックの問題を、AIは推測でしか解けません。
+            網羅性スコアはここから計算されています。教わっていないトピックの問題を、ソウタは推測でしか解けません。
           </p>
           <div className="space-y-2">
             {result.topicCoverage.map((t) => (
@@ -153,7 +156,7 @@ export function TestResult({
                 )}
               >
                 <div className="flex items-start gap-2">
-                  <span className="flex-shrink-0">{t.covered ? "✅" : t.status === "partial" ? "△" : "⬜"}</span>
+                  <AppIcon name={t.covered ? "success" : t.status === "partial" ? "warning" : "empty"} />
                   <div className="min-w-0">
                     <p
                       className={cn(
@@ -188,9 +191,9 @@ export function TestResult({
       {/* AIのフィードバック */}
       <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-5">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🤖</span>
+          <SotaAvatar />
           <div>
-            <h3 className="font-bold text-indigo-800 mb-2">AIからのフィードバック</h3>
+            <h3 className="font-bold text-indigo-800 mb-2">ソウタからのフィードバック</h3>
             <p className="text-indigo-700 text-sm leading-relaxed whitespace-pre-wrap">
               {result.feedback}
             </p>
@@ -202,14 +205,14 @@ export function TestResult({
       {forceStumbleUsed && (
         <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5">
           <div className="flex items-start gap-3">
-            <span className="text-2xl">🎭</span>
+            <AppIcon name="smile" size={28} />
             <div>
               <h3 className="font-bold text-amber-800 mb-1">ネタばらし</h3>
               <p className="text-amber-700 text-sm leading-relaxed">
-                実は最後の練習問題で、AIはあなたの理解を深めるために
+                実は最後の練習問題で、ソウタはあなたの理解を深めるために
                 <strong>わざと間違えました</strong>
                 。あなたの説明がとても分かりやすく、全問正解しそうだったからこその仕掛けです。
-                「なぜ間違えたのか」を考え、AIに訂正してあげる経験が、
+                「なぜ間違えたのか」を考え、ソウタに訂正してあげる経験が、
                 あなた自身の理解をさらに強くします。
               </p>
             </div>
@@ -223,12 +226,12 @@ export function TestResult({
           result.learningDiagnosis.weakPoints.length > 0 ||
           result.learningDiagnosis.suggestion) && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="font-bold text-gray-800 mb-4">🩺 教え方の診断</h3>
+            <h3 className="font-bold text-gray-800 mb-4"><AppIcon name="checklist" /> 教え方の診断</h3>
             <div className="space-y-4">
               {result.learningDiagnosis.strongPoints.length > 0 && (
                 <div>
                   <p className="text-xs font-bold text-green-700 mb-1.5">
-                    ✅ うまく教えられた点
+                    <AppIcon name="success" /> うまく教えられた点
                   </p>
                   <ul className="space-y-1">
                     {result.learningDiagnosis.strongPoints.map((p, i) => (
@@ -245,7 +248,7 @@ export function TestResult({
               {result.learningDiagnosis.weakPoints.length > 0 && (
                 <div>
                   <p className="text-xs font-bold text-orange-700 mb-1.5">
-                    ⚠️ もう一歩だった点
+                    <AppIcon name="warning" /> もう一歩だった点
                   </p>
                   <ul className="space-y-1">
                     {result.learningDiagnosis.weakPoints.map((p, i) => (
@@ -262,7 +265,7 @@ export function TestResult({
               {result.learningDiagnosis.suggestion && (
                 <div className="bg-indigo-50 rounded-xl p-3">
                   <p className="text-xs font-bold text-indigo-700 mb-1">
-                    💡 次に試すといいこと
+                    <AppIcon name="idea" /> 次に試すといいこと
                   </p>
                   <p className="text-sm text-indigo-800 leading-relaxed">
                     {result.learningDiagnosis.suggestion}
@@ -275,7 +278,7 @@ export function TestResult({
 
       {/* 問題ごとの回答と思考過程 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-bold text-gray-800 mb-4">🧠 AIの回答と思考過程</h3>
+        <h3 className="font-bold text-gray-800 mb-4"><AppIcon name="brain" /> ソウタの回答と思考過程</h3>
         <div className="space-y-4">
           {result.answers.map((a, i) => {
             const q = unit.testQuestions.find((question) => question.id === a.question_id);
@@ -311,8 +314,8 @@ export function TestResult({
                           "border-gray-200 bg-white text-gray-700",
                         )}>
                           <span className="font-bold">{choice.label}. {choice.text}</span>
-                          {chosen && <span className="ml-2 font-bold">← AIが選択</span>}
-                          {correct && <span className="ml-2 font-bold">✓ 正解</span>}
+                          {chosen && <span className="ml-2 font-bold"><AppIcon name="back" /> ソウタが選択</span>}
+                          {correct && <span className="ml-2 font-bold"><AppIcon name="check" /> 正解</span>}
                         </div>
                       );
                     })}
@@ -327,7 +330,7 @@ export function TestResult({
                         : "bg-red-200 text-red-800"
                     )}
                   >
-                    AIの答え: {a.chosenLabel}
+                    ソウタの答え: {a.chosenLabel}
                     {chosenText ? `. ${chosenText}` : ""}
                   </span>
                   {!a.is_correct && correctText && (
@@ -335,10 +338,10 @@ export function TestResult({
                       正解: {q.answerLabel}. {correctText}
                     </span>
                   )}
-                  <span className="text-lg">{a.is_correct ? "✅" : "❌"}</span>
+                  <AppIcon name={a.is_correct ? "success" : "error"} size={21} />
                   {a.taught === false && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-gray-200 text-gray-600">
-                      🔒 未習で誤答
+                      <AppIcon name="lock" /> 未習で誤答
                       {a.missingTopics?.length
                         ? `：「${a.missingTopics.join("」「")}」が不足`
                         : ""}
@@ -346,7 +349,7 @@ export function TestResult({
                   )}
                 </div>
                 <p className="text-xs text-gray-600 bg-white/70 rounded-lg p-2 leading-relaxed">
-                  💭 {a.thinking}
+                  <AppIcon name="brain" /> {a.thinking}
                 </p>
               </div>
             );
@@ -361,7 +364,7 @@ export function TestResult({
           hover:bg-indigo-700 transition-colors duration-200
           flex items-center justify-center gap-2 text-lg"
       >
-        🔄 教え方を改善して再挑戦
+        <AppIcon name="refresh" /> 教え方を改善して再挑戦
       </button>
     </div>
   );

@@ -3,6 +3,8 @@
 import { GrammarUnit } from "@/types";
 import { useState } from "react";
 import { ExplanationBuilder } from "@/components/ExplanationBuilder";
+import { AppIcon } from "@/components/AppIcon";
+import { SotaAvatar } from "@/components/SotaAvatar";
 
 type Props = {
   unit: GrammarUnit;
@@ -25,12 +27,12 @@ function TeachingGuidePanel({ unit }: { unit: GrammarUnit }) {
         className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-base">📋</span>
+          <AppIcon name="list" />
           <span className="text-sm font-bold text-indigo-700">教え方ガイド</span>
           <span className="text-xs text-indigo-400 font-normal">（範囲確認 ＋ 考え方のヒント）</span>
         </div>
         <span className="text-indigo-400 text-xs font-medium">
-          {open ? "▲ 閉じる" : "▼ 開く"}
+          <AppIcon name={open ? "up" : "down"} /> {open ? "閉じる" : "開く"}
         </span>
       </button>
 
@@ -39,12 +41,12 @@ function TeachingGuidePanel({ unit }: { unit: GrammarUnit }) {
           {/* AIの前提知識 */}
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-              🧠 AIがすでに知っていること（説明しなくてOK）
+              <AppIcon name="brain" /> ソウタがすでに知っていること（説明しなくてOK）
             </p>
             <ul className="space-y-1">
               {teachingGuide.assumedKnowledge.map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
-                  <span className="mt-0.5 flex-shrink-0">✓</span>
+                  <AppIcon name="check" className="mt-0.5" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -56,7 +58,7 @@ function TeachingGuidePanel({ unit }: { unit: GrammarUnit }) {
           {/* 出題トピック（スコープ確認） */}
           <div>
             <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">
-              📝 出題されるトピック
+              <AppIcon name="note" /> 出題されるトピック
             </p>
             <p className="text-xs text-indigo-400 mb-2">
               これらをすべてカバーできているか、書きながら確認しよう
@@ -64,7 +66,7 @@ function TeachingGuidePanel({ unit }: { unit: GrammarUnit }) {
             <ul className="space-y-1.5">
               {teachingGuide.coverageTopics.map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
-                  <span className="mt-0.5 text-indigo-300 flex-shrink-0 font-bold">□</span>
+                  <AppIcon name="empty" className="mt-0.5 text-indigo-300" />
                   <span className="leading-relaxed">{item}</span>
                 </li>
               ))}
@@ -76,7 +78,7 @@ function TeachingGuidePanel({ unit }: { unit: GrammarUnit }) {
           {/* 考え方のヒント */}
           <div>
             <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">
-              💡 考えてみよう
+              <AppIcon name="idea" /> 考えてみよう
             </p>
             <p className="text-xs text-amber-400 mb-2">
               答えは自分で考えて！説明を組み立てる視点のヒントです
@@ -107,9 +109,9 @@ export function TeachingInput({
       {/* AIからのメッセージ */}
       <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
         <div className="flex items-start gap-2">
-          <span className="text-2xl">🤖</span>
+          <SotaAvatar />
           <div>
-            <p className="font-bold text-indigo-800">AIより</p>
+            <p className="font-bold text-indigo-800">ソウタより</p>
             <p className="text-indigo-700 text-sm mt-1 leading-relaxed">
               「{unit.name}」のこと、まだきちんと分かっていません。
               下のステップに沿って、基本ルールをまとめて教えてください！
@@ -126,7 +128,7 @@ export function TeachingInput({
       {/* 説明ビルダー（ガイド付き / 標準 / 自由記述） */}
       <div>
         <label className="block text-sm font-bold text-gray-700 mb-2">
-          ✏️ AIに「{unit.name}」を教えてください
+          <AppIcon name="pencil" /> ソウタに「{unit.name}」を教えてください
         </label>
         <ExplanationBuilder
           unit={unit}

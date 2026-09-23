@@ -1,5 +1,7 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -17,7 +19,7 @@ export default function TeacherLoginPage() {
       <div className="w-full max-w-sm">
         {/* ロゴ */}
         <div className="text-center mb-10">
-          <div className="text-5xl mb-3">🌱</div>
+          <AppIcon name="plant" size={52} className="mb-3 text-green-600" />
           <h1 className="text-2xl font-black text-indigo-700">育てるAI</h1>
           <p className="text-sm text-gray-500 mt-1">教員ログイン</p>
         </div>

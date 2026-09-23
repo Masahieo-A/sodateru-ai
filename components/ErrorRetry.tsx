@@ -1,5 +1,7 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+
 type Props = {
   message: string;
   /** 同じ attemptId で再送する再試行ハンドラ */
@@ -15,13 +17,13 @@ type Props = {
 export function ErrorRetry({ message, onRetry, note }: Props) {
   return (
     <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 space-y-2">
-      <p className="text-sm text-red-700">⚠️ {message}</p>
+      <p className="text-sm text-red-700"><AppIcon name="warning" /> {message}</p>
       {onRetry && <button
         onClick={onRetry}
         className="w-full py-2.5 px-4 bg-red-600 text-white font-bold rounded-xl
           hover:bg-red-700 transition-colors text-sm"
       >
-        🔄 もう一度
+        <AppIcon name="refresh" /> もう一度
       </button>}
       {note && onRetry && <p className="text-xs text-red-500 text-center">{note}</p>}
     </div>

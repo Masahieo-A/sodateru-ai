@@ -12,6 +12,7 @@ import { SolvingDisplay } from "@/components/SolvingDisplay";
 import { TestResult } from "@/components/TestResult";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { AiUnderstandingCheck } from "@/components/AiUnderstandingCheck";
+import { AppIcon } from "@/components/AppIcon";
 import { loadParticipant, clearParticipant } from "@/lib/participant";
 import type {
   Session,
@@ -35,8 +36,6 @@ type LessonStep =
   | "test-solving" // AIがテストを解くアニメ
   | "result"; // スコア表示
 
-const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-
 // ============================================================
 // 共通ヘッダー（render 内で定義するとstateがリセットされるため外出し）
 // ============================================================
@@ -56,7 +55,7 @@ function LessonHeader({
     <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
       <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🌱</span>
+          <AppIcon name="plant" size={28} className="text-green-600" />
           <span className="font-black text-indigo-700 text-lg">育てるAI</span>
         </div>
         <div className="flex items-center gap-3">
@@ -81,7 +80,7 @@ function LessonHeader({
               href="/"
               className="text-sm text-gray-400 hover:text-gray-700 font-medium transition flex items-center gap-1"
             >
-              ← トップへ
+              <AppIcon name="back" /> トップへ
             </Link>
           )}
         </div>
@@ -104,7 +103,7 @@ function RankingList({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <h3 className="font-bold text-gray-800 mb-4">🏆 ランキング</h3>
+      <h3 className="font-bold text-gray-800 mb-4"><AppIcon name="trophy" /> ランキング</h3>
       <div className="space-y-2">
         {sorted.map((student, index) => {
           const rank = index + 1;
@@ -119,7 +118,7 @@ function RankingList({
               }`}
             >
               <span className="text-xl w-8 text-center flex-shrink-0">
-                {MEDAL[rank] ?? <span className="text-gray-500 font-bold text-sm">{rank}</span>}
+                {rank <= 3 ? <AppIcon name="medal" size={25} className={rank === 1 ? "text-amber-500" : rank === 2 ? "text-slate-400" : "text-orange-600"} /> : <span className="text-gray-500 font-bold text-sm">{rank}</span>}
               </span>
               <span
                 className={`flex-1 font-bold text-sm truncate ${
@@ -381,7 +380,7 @@ export default function SessionPage({
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-5xl mb-4 animate-bounce">🌱</div>
+          <AppIcon name="plant" size={52} className="mb-4 text-green-600 animate-bounce" />
           <p className="text-indigo-600 font-bold">読み込み中...</p>
         </div>
       </div>
@@ -395,9 +394,9 @@ export default function SessionPage({
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center px-4">
         <div className="text-center max-w-sm w-full">
-          <div className="text-5xl mb-4">😥</div>
+          <AppIcon name="error" size={52} className="mb-4 text-red-500" />
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-            <p className="text-red-700 font-bold mb-4">⚠️ {initError}</p>
+            <p className="text-red-700 font-bold mb-4"><AppIcon name="warning" /> {initError}</p>
             <button
               onClick={() => router.push("/join")}
               className="w-full py-3 px-6 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors"
@@ -433,7 +432,7 @@ export default function SessionPage({
         {header}
         <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6">
           <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-8 text-center">
-            <div className="text-5xl mb-4 animate-pulse">🌱</div>
+            <AppIcon name="plant" size={52} className="mb-4 text-green-600 animate-pulse" />
             <h1 className="text-xl font-black text-indigo-700 mb-2">
               授業の開始を待っています...
             </h1>
@@ -457,7 +456,7 @@ export default function SessionPage({
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 className="font-bold text-gray-800 mb-4">
-              👥 参加中の生徒 ({students.length}人)
+              <AppIcon name="users" /> 参加中の生徒 ({students.length}人)
             </h2>
             <div className="flex flex-wrap gap-2">
               {students.map((s) => (
@@ -503,7 +502,7 @@ export default function SessionPage({
               />
             ) : (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-                ⚠️ {error}
+                <AppIcon name="warning" /> {error}
               </div>
             ))}
 
@@ -597,9 +596,9 @@ export default function SessionPage({
           {/* テスト評価中 */}
           {lessonStep === "test-loading" && (
             <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-8 text-center">
-              <div className="text-4xl mb-3 animate-bounce">📝</div>
+              <AppIcon name="note" size={44} className="mb-3 animate-bounce" />
               <p className="text-indigo-600 font-bold">
-                AIがテストに挑戦しています...
+                ソウタがテストに挑戦しています...
               </p>
             </div>
           )}
@@ -642,7 +641,7 @@ export default function SessionPage({
       {header}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6">
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-8 text-white text-center shadow-lg">
-          <div className="text-5xl mb-3">🎉</div>
+          <AppIcon name="celebrate" size={52} className="mb-3" />
           <h1 className="text-2xl font-black mb-2">授業終了！</h1>
           <p className="text-indigo-100 text-sm">お疲れ様でした！全員の最終スコアです</p>
         </div>
@@ -652,10 +651,10 @@ export default function SessionPage({
         )}
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
-          <div className="text-4xl mb-3">✨</div>
+          <AppIcon name="sparkle" size={44} className="mb-3 text-amber-500" />
           <p className="text-gray-700 font-bold mb-1">よく頑張りました！</p>
           <p className="text-gray-500 text-sm">
-            AIに教えることで、自分の理解が深まりましたね。
+            ソウタに教えることで、自分の理解が深まりましたね。
             <br />
             次の授業でもまた挑戦しましょう！
           </p>
@@ -667,7 +666,7 @@ export default function SessionPage({
             hover:bg-indigo-700 transition-colors duration-200
             flex items-center justify-center gap-2"
         >
-          🏠 トップページへ
+          <AppIcon name="home" /> トップページへ
         </Link>
       </main>
     </div>

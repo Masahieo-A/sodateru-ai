@@ -1,5 +1,7 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -162,7 +164,7 @@ export default function TeacherDashboardPage() {
       <header className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🌱</span>
+            <AppIcon name="plant" size={28} className="text-green-600" />
             <span className="font-black text-indigo-700 text-lg">育てるAI</span>
             <span className="text-sm text-gray-400 ml-2">教員ダッシュボード</span>
           </div>
@@ -221,7 +223,7 @@ export default function TeacherDashboardPage() {
 
             <fieldset className="border-t border-gray-100 pt-4">
               <legend className="text-sm font-bold text-gray-700 mb-2">今回扱う知識トピック</legend>
-              <p className="text-xs text-gray-400 mb-3">「既習」にすると、AIへの確認時に既に知っている前提として扱います。</p>
+              <p className="text-xs text-gray-400 mb-3">「既習」にすると、ソウタへの確認時に既に知っている前提として扱います。</p>
               <div className="space-y-2">
                 {(selectedUnit?.knowledgeTopics ?? []).map((topic, index) => {
                   const id = selectedUnit ? knowledgeTopicId(selectedUnit, index) : `${unitId}.legacy-topic.${index}`;

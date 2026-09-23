@@ -78,9 +78,9 @@ export function AiUnderstandingCheck({ unit, dialogue, storageScope, onComplete 
   return <div className="space-y-4" aria-live="polite">
     <section className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5">
       <p className="text-xs font-bold text-indigo-600">理解の確認 {topicIndex + 1} / {unit.teachingGuide.coverageTopics.length}</p>
-      <h2 className="text-lg font-black text-gray-800 mt-2">AIの理解したルール</h2>
-      <p className="text-sm text-gray-500 mt-1">「{unit.teachingGuide.coverageTopics[topicIndex]}」について、AIの推測を確認してください。</p>
-      {loading && <p className="text-indigo-500 font-bold py-6">AIが理解を整理しています...</p>}
+      <h2 className="text-lg font-black text-gray-800 mt-2">ソウタの理解したルール</h2>
+      <p className="text-sm text-gray-500 mt-1">「{unit.teachingGuide.coverageTopics[topicIndex]}」について、ソウタの推測を確認してください。</p>
+      {loading && <p className="text-indigo-500 font-bold py-6">ソウタが理解を整理しています...</p>}
       {!loading && error && <div className="mt-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700"><p>{error}</p><button type="button" onClick={() => { setLoading(true); setError(null); requestInference().then(setInference).catch((err) => setError(err instanceof Error ? err.message : "再試行に失敗しました")).finally(() => setLoading(false)); }} className="mt-3 rounded-lg bg-red-600 px-3 py-2 font-bold text-white">もう一度取得</button></div>}
       {!loading && !error && inference && <>
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mt-4 text-sm text-indigo-900">{inference.inferredRule}</div>
@@ -88,6 +88,6 @@ export function AiUnderstandingCheck({ unit, dialogue, storageScope, onComplete 
         {editing && <div className="mt-3 space-y-2"><label htmlFor="inference-correction" className="block text-sm font-bold text-gray-700">修正内容</label><textarea id="inference-correction" value={correction} onChange={(event) => setCorrection(event.target.value)} placeholder="どこが違うか、正しいルールを教えてください" className="w-full border rounded-xl p-3 text-sm" rows={4} /><button type="button" disabled={!correction.trim() || submittingCorrection} onClick={submitCorrection} className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold disabled:opacity-50">{submittingCorrection ? "修正を反映しています..." : "修正を反映してもう一度確認"}</button></div>}
       </>}
     </section>
-    {check && inference && reviewed && <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"><h3 className="font-bold text-gray-800">あなたも1問解いて確かめよう</h3><p className="text-sm text-gray-600 mt-1 leading-relaxed">AIの説明が合っているかを見るだけでなく、教えたあなた自身も文法を使えるか確かめる4択問題です。最も適切な答えを1つ選んでください。</p><p className="text-sm text-gray-800 font-medium mt-4">{check.prompt}</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3" role="group" aria-label="理解を確かめる問題の選択肢">{check.choices.map((choice) => <button type="button" key={choice.label} onClick={() => answerCheck(choice.label)} className="text-left px-3 py-3 rounded-xl border border-gray-200 hover:border-indigo-400 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"><b>{choice.label}.</b> {choice.text}</button>)}</div></section>}
+    {check && inference && reviewed && <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"><h3 className="font-bold text-gray-800">あなたも1問解いて確かめよう</h3><p className="text-sm text-gray-600 mt-1 leading-relaxed">ソウタの説明が合っているかを見るだけでなく、教えたあなた自身も文法を使えるか確かめる4択問題です。最も適切な答えを1つ選んでください。</p><p className="text-sm text-gray-800 font-medium mt-4">{check.prompt}</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3" role="group" aria-label="理解を確かめる問題の選択肢">{check.choices.map((choice) => <button type="button" key={choice.label} onClick={() => answerCheck(choice.label)} className="text-left px-3 py-3 rounded-xl border border-gray-200 hover:border-indigo-400 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"><b>{choice.label}.</b> {choice.text}</button>)}</div></section>}
   </div>;
 }

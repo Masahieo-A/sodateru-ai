@@ -1,5 +1,7 @@
 "use client";
 
+import { AppIcon } from "@/components/AppIcon";
+
 import { useEffect, useMemo, useState } from "react";
 import type { GrammarUnit } from "@/types";
 import { buildTeachingExplanation } from "@/lib/teaching";
@@ -31,7 +33,7 @@ function TeachingChecklist({ topics }: { topics: string[] }) {
     <div className="rounded-xl border border-emerald-200 overflow-hidden">
       <div className="px-4 py-2.5 bg-emerald-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-base">✅</span>
+          <AppIcon name="success" />
           <span className="text-sm font-bold text-emerald-700">教え方チェックリスト</span>
         </div>
         <span className="text-xs font-bold text-emerald-600">
@@ -81,10 +83,10 @@ function WorkedExamplePanel({ unit }: { unit: GrammarUnit }) {
         className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
       >
         <span className="text-sm font-bold text-gray-600">
-          💡 説明例を見る（弱い例 / 良い例）
+          <AppIcon name="idea" /> 説明例を見る（弱い例 / 良い例）
         </span>
         <span className="text-gray-400 text-xs font-medium">
-          {open ? "▲ 閉じる" : "▼ 開く"}
+          <AppIcon name={open ? "up" : "down"} /> {open ? "閉じる" : "開く"}
         </span>
       </button>
       {open && (
@@ -340,7 +342,7 @@ export function ExplanationBuilder({
           <div className="rounded-xl border-2 border-indigo-200 bg-white overflow-hidden">
             <div className="px-4 py-2.5 bg-indigo-50 flex items-center justify-between">
               <span className="text-sm font-bold text-indigo-700">
-                🪄 AIに教える説明文（自動生成・編集OK）
+                <AppIcon name="magic" /> ソウタに教える説明文（自動生成・編集OK）
               </span>
               {manualEdited && (
                 <button
@@ -351,7 +353,7 @@ export function ExplanationBuilder({
                   }}
                   className="text-xs text-indigo-500 font-medium hover:underline"
                 >
-                  🔄 入力から作り直す
+                  <AppIcon name="refresh" /> 入力から作り直す
                 </button>
               )}
             </div>
@@ -376,7 +378,7 @@ export function ExplanationBuilder({
           {!manualEdited && missingRequired.length > 0 && (
             <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
               <p className="text-sm text-amber-800 leading-relaxed">
-                あと少し！AIに伝わりやすくするために、
+                あと少し！ソウタに伝わりやすくするために、
                 「{missingRequired.map((s) => s.label).join("」「")}」
                 を書いてみよう。
               </p>
@@ -410,7 +412,7 @@ export function ExplanationBuilder({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`上の構成メモの順番で、AIへの説明を書いてみよう。\n\n例：「${unit.name}は〜のために使います。見分け方は…。例文では…」`}
+            placeholder={`上の構成メモの順番で、ソウタへの説明を書いてみよう。\n\n例：「${unit.name}は〜のために使います。見分け方は…。例文では…」`}
             rows={8}
             disabled={isLoading}
             className="w-full p-4 border-2 border-gray-200 rounded-xl text-gray-800 text-sm
@@ -426,7 +428,7 @@ export function ExplanationBuilder({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`AIへの説明を自由に書いてください。\n\n例：「${unit.name}とは〜です。〇〇のときは△△を使い、□□のときは...」`}
+            placeholder={`ソウタへの説明を自由に書いてください。\n\n例：「${unit.name}とは〜です。〇〇のときは△△を使い、□□のときは...」`}
             rows={8}
             disabled={isLoading}
             className="w-full p-4 border-2 border-gray-200 rounded-xl text-gray-800 text-sm
@@ -446,7 +448,7 @@ export function ExplanationBuilder({
                 あと {MIN_FREE_LEN - text.trim().length} 文字くらい書いてみよう
               </span>
             ) : (
-              <span className="text-green-500">✓ AIに教えられます</span>
+              <span className="text-green-500"><AppIcon name="check" /> ソウタに教えられます</span>
             )}
           </span>
           <span className="text-xs text-gray-400">{text.length} 文字</span>
@@ -464,11 +466,11 @@ export function ExplanationBuilder({
       >
         {isLoading ? (
           <>
-            <span className="animate-spin">⏳</span>
+            <AppIcon name="loading" className="animate-spin" />
             送信中...
           </>
         ) : (
-          <>🚀 AIに教える</>
+          <><AppIcon name="rocket" /> ソウタに教える</>
         )}
       </button>
     </form>
