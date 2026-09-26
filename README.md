@@ -1,5 +1,7 @@
 # 育てるAI
 
+> **このリポジトリは更新を終了しました（2026-09-26）。正本は [Masahieo-A/Aomatsu_web](https://github.com/Masahieo-A/Aomatsu_web) の `apps/app-sodateru-ai` に移転しています。** 本番URL: https://sodateru-ai.aomatsu-apps.workers.dev/
+
 学習者がAIへ教え、AIの推論を確認・修正し、最後に独立問題で自分の理解も確かめる授業アプリです。
 
 ## 現行構成
